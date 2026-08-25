@@ -1,0 +1,19 @@
+/* Icon set used throughout the app. */
+@import '@fortawesome/fontawesome-free/css/all.min.css';
+
+/* The original design system, carried over unchanged from the static site. */
+@import './styles/style.css';
+@import './styles/lottery.css';
+
+/*
+ * Tokens the legacy markup referenced through inline styles but which were
+ * never declared in `style.css`.
+ */
+:root {
+  --bg-light: rgb(255 255 255 / 6%);
+  --border: var(--glass-border);
+}
+
+body {
+  margin: 0;
+}

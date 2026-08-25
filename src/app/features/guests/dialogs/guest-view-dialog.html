@@ -1,0 +1,47 @@
+<app-modal
+  title="Détails de l'invité"
+  icon="fa-eye"
+  iconColor="var(--info)"
+  (closed)="closed.emit()"
+>
+  <div class="view-card">
+    <div class="view-avatar"><i class="fas" [class]="icon()"></i></div>
+    <div class="view-name">{{ name() }}</div>
+    <div class="view-status">{{ guest().status }}</div>
+    <div class="view-details">
+      <div class="view-detail-item">
+        <div class="view-detail-label">Table</div>
+        <div class="view-detail-value">
+          <i class="fas fa-book-open" style="margin-right: 6px; color: var(--accent)"></i
+          >{{ guest().table }}
+        </div>
+      </div>
+      <div class="view-detail-item">
+        <div class="view-detail-label">Lien</div>
+        <div class="view-detail-value">{{ guest().link }}</div>
+      </div>
+      <div class="view-detail-item">
+        <div class="view-detail-label">Places</div>
+        <div class="view-detail-value">{{ seats() }} place{{ seats() > 1 ? 's' : '' }}</div>
+      </div>
+      <div class="view-detail-item">
+        <div class="view-detail-label">N° Invité</div>
+        <div class="view-detail-value">#{{ paddedId() }}</div>
+      </div>
+      <div class="view-detail-item">
+        <div class="view-detail-label">WhatsApp</div>
+        <div class="view-detail-value">{{ guest().phone ?? '-' }}</div>
+      </div>
+      <div class="view-detail-item">
+        <div class="view-detail-label">Présence</div>
+        <div class="view-detail-value" [style.color]="guest().present ? '#58d68d' : '#aab7b8'">
+          {{ guest().present ? 'Présent' : 'Attend' }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <ng-container modalFooter>
+    <button type="button" class="btn-cancel" (click)="closed.emit()">Fermer</button>
+  </ng-container>
+</app-modal>

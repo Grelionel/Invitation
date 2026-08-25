@@ -1,0 +1,62 @@
+<div class="container">
+  <div class="header" style="text-align: center; margin-bottom: 30px">
+    <h1><i class="fas fa-gift" style="margin-right: 15px"></i>Tirage au Sort</h1>
+    <p>Lancer le tirage pour découvrir le gagnant d'un lot</p>
+  </div>
+
+  <div class="lottery-hero">
+    @if (countdown(); as secondsLeft) {
+      <div class="spinner"></div>
+      <p class="loader-text">Tirage au sort en cours...</p>
+      <div class="countdown-number">{{ secondsLeft }}</div>
+      <div class="progress-bar-container">
+        <div class="progress-bar" [style.width.%]="progressPercent()"></div>
+      </div>
+    } @else if (winner(); as guest) {
+      <div class="winner-card">
+        <div class="winner-badge"><i class="fas fa-trophy"></i> Félicitations !</div>
+
+        <div class="info-item">
+          <span class="info-value">{{ guest.status }}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-value">{{ guest.nom.toUpperCase() }}</span>
+          @if (guest.status !== 'Couple') {
+            <div class="info-item">
+              <span class="info-value">{{ guest.prenom ?? '-' }}</span>
+            </div>
+          }
+        </div>
+        <div class="info-item">
+          <span class="info-value">{{ guest.table }}</span>
+        </div>
+
+        <button type="button" class="btn btn-secondary" (click)="reset()" style="margin-top: 25px">
+          <i class="fas fa-redo"></i> Nouveau tirage
+        </button>
+      </div>
+    } @else {
+      <div class="lottery-start">
+        <button
+          type="button"
+          class="btn btn-primary"
+          (click)="start()"
+          style="padding: 16px 40px; font-size: 1.3rem; border-radius: 50px; cursor: pointer"
+        >
+          <i class="fas fa-dice" style="margin-right: 10px"></i> Lancer le Tirage au Sort
+        </button>
+        <p class="lottery-eligible">{{ eligible().length }} invité(s) éligible(s)</p>
+      </div>
+    }
+  </div>
+
+  <div style="text-align: center; margin-top: 30px">
+    <a
+      routerLink="/"
+      class="btn btn-secondary"
+      style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px"
+    >
+      <i class="fas fa-arrow-left"></i> Retour à la gestion
+    </a>
+  </div>
+</div>

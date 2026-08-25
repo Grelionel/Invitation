@@ -1,0 +1,6 @@
+dist
+node_modules
+data
+legacy
+public/assets/img/slide/slides.json
+src/styles
