@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gestion des Invités - Mariage</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link rel="stylesheet" href="assets/css/style.css" />
+    <base target="_blank" />
+  </head>
+
+  <body>
+    <div class="container">
+      <!-- Header -->
+      <div class="header">
+        <h1><i class="fas fa-rings-wedding" style="margin-right: 15px"></i>Gestion des Invités</h1>
+        <p>Organisez votre célébration avec élégance et foi</p>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon"><i class="fas fa-users"></i></div>
+          <div class="stat-value" id="statGuests">0</div>
+          <div class="stat-label">Invités</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon"><i class="fas fa-chair"></i></div>
+          <div class="stat-value" id="statTables">0</div>
+          <div class="stat-label">Tables</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon"><i class="fas fa-utensils"></i></div>
+          <div class="stat-value" id="statSeats">0</div>
+          <div class="stat-label">Places</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon"><i class="fas fa-heart"></i></div>
+          <div class="stat-value" id="statCouples">0</div>
+          <div class="stat-label">Couples</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon"><i class="fas fa-percentage"></i></div>
+          <div class="stat-value" id="statCapacity">0%</div>
+          <div class="stat-label">Capacité</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+          <div class="stat-value" id="statPresent">0</div>
+          <div class="stat-label">Présents</div>
+        </div>
+      </div>
+
+      <!-- Occupancy Warning -->
+      <div class="occupancy-warning" id="occupancyWarning">
+        <i class="fas fa-exclamation-triangle"></i>
+        <span id="occupancyWarningText"></span>
+      </div>
+
+      <!-- Actions -->
+      <div class="actions-bar">
+        <div style="display: flex; gap: 12px; flex-wrap: wrap">
+          <button class="btn btn-primary" onclick="openModal('guest')">
+            <i class="fas fa-user-plus"></i> Ajouter un invité
+          </button>
+          <button class="btn btn-secondary" onclick="openModal('table')">
+            <i class="fas fa-plus"></i> Ajouter une table
+          </button>
+          <!-- APRÈS -->
+          <button class="btn btn-success" onclick="openMobileScanner()"><i class="fas fa-qrcode"></i> Scanner</button>
+          <button class="btn btn-warning" onclick="syncFromServer()" style="background: #f39c12; color: white">
+            <i class="fas fa-sync-alt"></i> Synchroniser
+          </button>
+        </div>
+        <div class="search-box">
+          <i class="fas fa-search"></i>
+          <input type="text" id="searchInput" placeholder="Rechercher un invité..." oninput="searchGuests()" />
+        </div>
+      </div>
+      <!-- Table -->
+      <div class="table-container">
+        <div class="table-header">
+          <div class="table-title">
+            <i class="fas fa-list"></i>
+            Liste des invités
+          </div>
+          <div class="showing-info" id="showingInfo">Affichage 0-0 sur 0</div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>N°</th>
+              <th>Statut</th>
+              <th>Nom & Prénom</th>
+              <th>Table</th>
+              <th>Lien</th>
+              <th>Téléphone</th>
+              <th>Présence</th>
+              <th style="text-align: center">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="guestTableBody"></tbody>
+        </table>
+        <div class="pagination" id="pagination"></div>
+      </div>
+    </div>
+
+    <!-- Guest Modal -->
+    <div class="modal-overlay" id="guestModal">
+      <div class="modal">
+        <div class="modal-header">
+          <div class="modal-title">
+            <i class="fas fa-user-plus" style="color: var(--accent); margin-right: 8px"></i>Ajouter un invité
+          </div>
+          <button class="modal-close" onclick="closeModal('guest')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+          <form id="guestForm">
+            <div class="form-group">
+              <label class="form-label">Statut</label>
+              <select class="form-select" id="guestStatus" required>
+                <option value="">-- Sélectionner --</option>
+                <option value="Couple">Couple</option>
+                <option value="Monsieur">Monsieur</option>
+                <option value="Madame">Madame</option>
+                <option value="Mademoiselle">Mademoiselle</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Nom</label>
+              <input type="text" class="form-input" id="guestNom" placeholder="Nom de famille" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Prénom</label>
+              <input type="text" class="form-input" id="guestPrenom" placeholder="Prénom" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Table</label>
+              <select class="form-select" id="guestTable" required>
+                <option value="">-- Sélectionner la table --</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Lien</label>
+              <select class="form-select" id="guestLink" required>
+                <option value="">-- Sélectionner --</option>
+                <option value="Parent">Parent</option>
+                <option value="Ami">Ami</option>
+                <option value="Collègue">Collègue</option>
+                <option value="Connaissance">Connaissance</option>
+                <option value="Église">Église</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Chrétien</label>
+              <select class="form-select" id="guestIsChristian" required>
+                <option value="">-- Sélectionner --</option>
+                <option value="Oui">Oui</option>
+                <option value="Non">Non</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">WhatsApp (optionnel)</label>
+              <input type="tel" class="form-input" id="guestPhone" placeholder="Ex: +242 06 123 45 67" />
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-cancel" onclick="closeModal('guest')">Annuler</button>
+          <button class="btn-save" onclick="saveGuest()">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scanner Modal -->
+    <div class="modal-overlay" id="scannerModal" style="z-index: 10000">
+      <div class="modal" style="max-width: 500px">
+        <div class="modal-header">
+          <div class="modal-title">
+            <i class="fas fa-camera" style="color: var(--success); margin-right: 8px"></i>
+            Scanner un QR Code
+          </div>
+          <button class="modal-close" onclick="closeScanner()">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body" style="padding: 0">
+          <div id="reader" style="width: 100%; min-height: 300px"></div>
+          <div id="scannerResult" style="display: none; padding: 20px; text-align: center">
+            <i class="fas fa-check-circle" style="font-size: 3rem; color: var(--success); margin-bottom: 10px"></i>
+            <p style="font-weight: 700; color: var(--text)">QR Code détecté !</p>
+            <p id="scannerResultText" style="color: var(--text-light)"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table Modal -->
+    <div class="modal-overlay" id="tableModal">
+      <div class="modal">
+        <div class="modal-header">
+          <div class="modal-title">
+            <i class="fas fa-chair" style="color: var(--gold); margin-right: 8px"></i>Ajouter une table
+          </div>
+          <button class="modal-close" onclick="closeModal('table')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+          <form id="tableForm">
+            <div class="form-group">
+              <label class="form-label">Nom de la table (Passage biblique)</label>
+              <input type="text" class="form-input" id="tableName" placeholder="Ex: Jean 3:16" required />
+              <p style="color: var(--text-light); font-size: 0.8rem; margin-top: 8px">
+                <i class="fas fa-info-circle"></i> Maximum 30 tables au total. Chaque table accueille jusqu'à 10
+                personnes.
+              </p>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-cancel" onclick="closeModal('table')">Annuler</button>
+          <button class="btn-save" onclick="saveTable()">Ajouter</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- View Modal -->
+    <div class="modal-overlay" id="viewModal">
+      <div class="modal">
+        <div class="modal-header">
+          <div class="modal-title">
+            <i class="fas fa-eye" style="color: var(--info); margin-right: 8px"></i>Détails de l'invité
+          </div>
+          <button class="modal-close" onclick="closeModal('view')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body" id="viewContent"></div>
+        <div class="modal-footer">
+          <button class="btn-cancel" onclick="closeModal('view')">Fermer</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- QR Code Modal -->
+    <div class="modal-overlay" id="qrModal">
+      <div class="modal">
+        <div class="modal-header">
+          <div class="modal-title">
+            <i class="fas fa-qrcode" style="color: var(--success); margin-right: 8px"></i>Code QR de l'invité
+          </div>
+          <button class="modal-close" onclick="closeModal('qr')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+          <div class="qr-display" id="qrDisplay"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-cancel" onclick="closeModal('qr')">Fermer</button>
+          <button class="btn-save" onclick="downloadQR()"><i class="fas fa-download"></i> Télécharger</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+    <!-- Dans le <head> ou avant </body> -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="assets/js/app.js"></script>
+  </body>
+</html>

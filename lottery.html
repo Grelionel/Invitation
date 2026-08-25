@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tirage au Sort - Mariage</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link rel="stylesheet" href="assets/css/style.css" />
+    <link rel="stylesheet" href="assets/css/lottery.css" />
+  </head>
+
+  <body>
+    <div class="container">
+      <!-- Header minimaliste -->
+      <div class="header" style="text-align: center; margin-bottom: 30px">
+        <h1><i class="fas fa-gift" style="margin-right: 15px"></i>Tirage au Sort</h1>
+        <p>Lancer le tirage pour découvrir le gagnant d'un lot</p>
+      </div>
+
+      <!-- Zone d'action centrale -->
+      <div class="lottery-hero">
+        <!-- État initial : Bouton uniquement -->
+        <div id="initialState">
+          <button
+            class="btn btn-primary"
+            id="drawBtn"
+            onclick="startLotterySequence()"
+            style="padding: 16px 40px; font-size: 1.3rem; border-radius: 50px; cursor: pointer">
+            <i class="fas fa-dice" style="margin-right: 10px"></i> Lancer le Tirage au Sort
+          </button>
+        </div>
+
+        <!-- État 2 : Loader (10 secondes) -->
+        <div id="loaderState" class="hidden">
+          <div class="spinner"></div>
+          <p class="loader-text">Tirage au sort en cours...</p>
+          <div class="countdown-number" id="countdown">10</div>
+          <div class="progress-bar-container">
+            <div class="progress-bar" id="progressBar"></div>
+          </div>
+        </div>
+
+        <!-- État 3 : Affichage du gagnant -->
+        <div id="winnerState" class="hidden">
+          <div class="winner-card">
+            <div class="winner-badge"><i class="fas fa-trophy"></i> Félicitations !</div>
+
+            <div class="info-item">
+              <span class="info-value" id="winnerStatut">-</span>
+            </div>
+            <div class="info-item">
+              <span class="info-value" id="winnerNom">-</span>
+              <div class="info-item" id="prenomContainer">
+                <span class="info-value" id="winnerPrenom">-</span>
+              </div>
+            </div>
+
+            <div class="info-item">
+              <span class="info-value" id="winnerTable">-</span>
+            </div>
+
+            <button class="btn btn-secondary" onclick="resetLotteryUI()" style="margin-top: 25px">
+              <i class="fas fa-redo"></i> Nouveau tirage
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bouton de retour discret -->
+      <div style="text-align: center; margin-top: 30px">
+        <a
+          href="index.html"
+          class="btn btn-secondary"
+          style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px">
+          <i class="fas fa-arrow-left"></i> Retour à la gestion
+        </a>
+      </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="assets/js/lottery.js"></script>
+  </body>
+</html>

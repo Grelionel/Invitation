@@ -1,0 +1,122 @@
+.lottery-hero {
+  background: var(--bg-card);
+  border: 2px solid var(--accent);
+  border-radius: 20px;
+  padding: 50px 30px;
+  text-align: center;
+  margin: 20px auto;
+  /* max-width: 600px; */
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  min-height: 280px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Spinner Loader */
+.spinner {
+  width: 60px;
+  height: 60px;
+  border: 6px solid var(--border, #eee);
+  border-top: 6px solid var(--accent, #d4af37);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 15px auto;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loader-text {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 10px;
+}
+
+.countdown-number {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: var(--accent);
+  margin-bottom: 15px;
+}
+
+.progress-bar-container {
+  width: 100%;
+  max-width: 300px;
+  height: 10px;
+  background-color: var(--border, #eee);
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 0 auto;
+}
+
+.progress-bar {
+  width: 0%;
+  height: 100%;
+  background-color: var(--accent, #d4af37);
+  transition: width 1s linear;
+}
+
+/* Winner Card */
+.winner-card {
+  width: 100%;
+  animation: zoomIn 0.5s ease-out;
+}
+
+.winner-badge {
+  background: var(--accent, #d4af37);
+  color: #fff;
+  font-size: 1.2rem;
+  font-weight: 700;
+  padding: 8px 20px;
+  border-radius: 20px;
+  display: inline-block;
+  margin-bottom: 25px;
+}
+
+.winner-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 15px;
+  text-align: left;
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid var(--border, #eee);
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.info-label {
+  font-size: 0.85rem;
+  color: var(--text-light, #777);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.info-value {
+  font-size: 5rem;
+  font-weight: 700;
+  color: var(--text, #333);
+}
+
+@keyframes zoomIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validation Présence - Mariage</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+
+<body>
+    <div class="scanner-page">
+        <div class="scanner-container">
+            <div class="scanner-icon"><i class="fas fa-qrcode"></i></div>
+            <h1 class="scanner-title">Validation</h1>
+            <p class="scanner-desc">Confirmez la présence de l'invité.</p>
+
+            <input type="hidden" id="scanInput">
+
+            <!-- Chargement -->
+            <div id="loadingMessage" style="text-align:center;padding:20px;color:var(--text-light);">
+                <i class="fas fa-spinner fa-spin" style="font-size:2rem;margin-bottom:10px;"></i>
+                <p>Chargement...</p>
+            </div>
+
+            <!-- Erreur + bouton retour -->
+            <div id="errorMessage" style="display:none;text-align:center;padding:20px;">
+                <i class="fas fa-exclamation-triangle" style="font-size:3rem;color:#e74c3c;margin-bottom:15px;"></i>
+                <h3 style="margin-bottom:10px;">Données non disponibles</h3>
+                <p style="margin-bottom:20px;color:var(--text-light);">
+                    Veuillez d'abord charger les données depuis la page principale.
+                </p>
+                <button class="btn btn-primary" onclick="goToIndex()">
+                    <i class="fas fa-home"></i> Aller à l'accueil
+                </button>
+            </div>
+
+            <!-- Résultat -->
+            <div class="scanner-result" id="scannerResult" style="display:none;">
+                <div class="scanner-result-title"><i class="fas fa-user-check"></i> Invité</div>
+                <div class="scanner-result-info" id="scannerResultInfo"></div>
+                <div class="scanner-buttons">
+                    <button class="btn btn-success" onclick="markPresent()">
+                        <i class="fas fa-check"></i> Présent
+                    </button>
+                    <button class="btn btn-secondary" onclick="markAbsent()">
+                        <i class="fas fa-times"></i> Attend
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="toast-container" id="toastContainer"></div>
+    <script src="assets/js/scan.js"></script>
+</body>
+
+</html>
