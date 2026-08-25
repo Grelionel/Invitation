@@ -1,0 +1,26 @@
+@if (!dismissed()) {
+  <div class="ip-banner">
+    <div class="ip-banner-title">
+      <i class="fas fa-network-wired"></i>
+      <strong>Configuration Réseau</strong>
+    </div>
+    <div class="ip-banner-hint">URL actuelle du serveur :</div>
+    <input [(ngModel)]="draft" aria-label="URL du serveur" />
+    <div class="ip-banner-actions">
+      <button type="button" class="ip-banner-save" (click)="save()">
+        <i class="fas fa-save"></i> Enregistrer
+      </button>
+      <button
+        type="button"
+        class="ip-banner-close"
+        (click)="dismissed.set(true)"
+        aria-label="Masquer"
+      >
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <p class="ip-banner-note">
+      <i class="fas fa-info-circle"></i> Lancez « npm run serve:api » et copiez l'IP affichée
+    </p>
+  </div>
+}

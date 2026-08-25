@@ -1,0 +1,81 @@
+<app-modal
+  [title]="isEdit() ? 'Modifier un invité' : 'Ajouter un invité'"
+  [icon]="isEdit() ? 'fa-pen' : 'fa-user-plus'"
+  (closed)="closed.emit()"
+>
+  <form [formGroup]="form" (ngSubmit)="submit()">
+    <div class="form-group">
+      <label class="form-label" for="guestStatus">Statut</label>
+      <select class="form-select" id="guestStatus" formControlName="status">
+        <option value="">-- Sélectionner --</option>
+        @for (status of statuses; track status) {
+          <option [value]="status">{{ status }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="guestNom">Nom</label>
+      <input class="form-input" id="guestNom" formControlName="nom" placeholder="Nom de famille" />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="guestPrenom">Prénom</label>
+      <input class="form-input" id="guestPrenom" formControlName="prenom" placeholder="Prénom" />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="guestTable">Table</label>
+      <select class="form-select" id="guestTable" formControlName="table">
+        <option value="">-- Sélectionner la table --</option>
+        @for (option of tableOptions(); track option.name) {
+          <option [value]="option.name" [disabled]="option.full">
+            {{ option.name
+            }}{{ option.full ? ' (PLEINE)' : ' (' + option.seats + '/' + maxPerTable + ')' }}
+          </option>
+        }
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="guestLink">Lien</label>
+      <select class="form-select" id="guestLink" formControlName="link">
+        <option value="">-- Sélectionner --</option>
+        @for (link of links; track link) {
+          <option [value]="link">{{ link }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="guestIsChristian">Chrétien</label>
+      <select class="form-select" id="guestIsChristian" formControlName="isChristian">
+        <option value="">-- Sélectionner --</option>
+        <option value="Oui">Oui</option>
+        <option value="Non">Non</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="guestPhone">WhatsApp (optionnel)</label>
+      <input
+        type="tel"
+        class="form-input"
+        id="guestPhone"
+        formControlName="phone"
+        placeholder="Ex: +242 06 123 45 67"
+      />
+    </div>
+
+    @if (form.invalid && form.touched) {
+      <p style="color: var(--error); font-size: 0.85rem">
+        <i class="fas fa-exclamation-circle"></i> Veuillez remplir tous les champs obligatoires.
+      </p>
+    }
+  </form>
+
+  <ng-container modalFooter>
+    <button type="button" class="btn-cancel" (click)="closed.emit()">Annuler</button>
+    <button type="button" class="btn-save" (click)="submit()">Enregistrer</button>
+  </ng-container>
+</app-modal>

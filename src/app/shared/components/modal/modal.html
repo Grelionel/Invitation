@@ -1,0 +1,19 @@
+<div class="modal-overlay active" (click)="onOverlayClick($event)">
+  <div class="modal" [style.max-width]="maxWidth()">
+    <div class="modal-header">
+      <div class="modal-title">
+        <i class="fas" [class]="icon()" [style.color]="iconColor()" style="margin-right: 8px"></i>
+        {{ title() }}
+      </div>
+      <button type="button" class="modal-close" (click)="closed.emit()" aria-label="Fermer">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <ng-content />
+    </div>
+    <div class="modal-footer">
+      <ng-content select="[modalFooter]" />
+    </div>
+  </div>
+</div>

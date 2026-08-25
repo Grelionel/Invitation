@@ -1,0 +1,246 @@
+<div class="container">
+  <div class="header">
+    <h1><i class="fas fa-heart" style="margin-right: 15px"></i>Gestion des Invités</h1>
+    <p>Organisez votre célébration avec élégance et foi</p>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon"><i class="fas fa-users"></i></div>
+      <div class="stat-value">{{ store.stats().guests }}</div>
+      <div class="stat-label">Invités</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon"><i class="fas fa-chair"></i></div>
+      <div class="stat-value">{{ store.stats().tables }}</div>
+      <div class="stat-label">Tables</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon"><i class="fas fa-utensils"></i></div>
+      <div class="stat-value">{{ store.stats().seats }}</div>
+      <div class="stat-label">Places</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon"><i class="fas fa-heart"></i></div>
+      <div class="stat-value">{{ store.stats().couples }}</div>
+      <div class="stat-label">Couples</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon"><i class="fas fa-percentage"></i></div>
+      <div class="stat-value">{{ store.stats().capacityPercent }}%</div>
+      <div class="stat-label">Capacité</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+      <div class="stat-value">{{ store.stats().present }}</div>
+      <div class="stat-label">Présents</div>
+    </div>
+  </div>
+
+  @if (occupancyWarning(); as warning) {
+    <div class="occupancy-warning show">
+      <i class="fas fa-exclamation-triangle"></i>
+      <span>{{ warning }}</span>
+    </div>
+  }
+
+  <div class="actions-bar">
+    <div class="actions-bar-buttons">
+      <button type="button" class="btn btn-primary" (click)="openAddGuest()">
+        <i class="fas fa-user-plus"></i> Ajouter un invité
+      </button>
+      <button type="button" class="btn btn-secondary" (click)="open('table')">
+        <i class="fas fa-plus"></i> Ajouter une table
+      </button>
+      <button type="button" class="btn btn-success" (click)="open('scanner')">
+        <i class="fas fa-qrcode"></i> Scanner
+      </button>
+      <button type="button" class="btn btn-warning" (click)="store.syncFromServer()">
+        <i class="fas fa-sync-alt"></i> Synchroniser
+      </button>
+      <a class="btn btn-secondary" routerLink="/lottery"
+        ><i class="fas fa-gift"></i> Tirage au sort</a
+      >
+      <a class="btn btn-secondary" routerLink="/display"
+        ><i class="fas fa-tv"></i> Écran d'accueil</a
+      >
+    </div>
+    <div class="search-box">
+      <i class="fas fa-search"></i>
+      <input
+        type="text"
+        placeholder="Rechercher un invité..."
+        [value]="search()"
+        (input)="onSearch($any($event.target).value)"
+      />
+    </div>
+  </div>
+
+  <div class="table-container">
+    <div class="table-header">
+      <div class="table-title"><i class="fas fa-list"></i> Liste des invités</div>
+      <div class="showing-info">{{ showingInfo() }}</div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>N°</th>
+          <th>Statut</th>
+          <th>Nom &amp; Prénom</th>
+          <th>Table</th>
+          <th>Lien</th>
+          <th>Téléphone</th>
+          <th>Présence</th>
+          <th style="text-align: center">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (guest of pageGuests(); track guest.id; let i = $index) {
+          <tr class="table-row-anim" [style.animation-delay]="i * 0.05 + 's'">
+            <td>
+              <span style="font-weight: 800; color: var(--accent)">
+                #{{ guest.id.toString().padStart(2, '0') }}
+              </span>
+            </td>
+            <td>
+              <span class="status-badge" [class]="statusClass(guest)">
+                <i class="fas" [class]="icon(guest)"></i> {{ guest.status }}
+              </span>
+            </td>
+            <td>
+              <span class="guest-name">{{ name(guest) }}</span>
+            </td>
+            <td>
+              <span class="table-badge"><i class="fas fa-book-open"></i> {{ guest.table }}</span>
+            </td>
+            <td>
+              <span class="guest-link" [class]="linkClass(guest)">{{ guest.link }}</span>
+            </td>
+            <td>
+              @if (guest.phone) {
+                <i class="fab fa-whatsapp" style="color: #25d366; margin-right: 4px"></i
+                >{{ guest.phone }}
+              } @else {
+                -
+              }
+            </td>
+            <td>
+              <span class="present-badge" [class]="guest.present ? 'present-yes' : 'present-no'">
+                <i
+                  class="fas"
+                  [class]="guest.present ? 'fa-check-circle' : 'fa-hourglass-half'"
+                ></i>
+                {{ guest.present ? 'Présent' : 'Attend' }}
+              </span>
+            </td>
+            <td>
+              <div class="actions-cell" style="justify-content: center">
+                <button
+                  type="button"
+                  class="action-btn view"
+                  (click)="open('view', guest)"
+                  title="Voir"
+                >
+                  <i class="fas fa-eye"></i>
+                </button>
+                <button
+                  type="button"
+                  class="action-btn edit"
+                  (click)="open('guest', guest)"
+                  title="Modifier"
+                >
+                  <i class="fas fa-pen"></i>
+                </button>
+                <button
+                  type="button"
+                  class="action-btn qr"
+                  (click)="open('qr', guest)"
+                  title="Code QR"
+                >
+                  <i class="fas fa-qrcode"></i>
+                </button>
+                <button
+                  type="button"
+                  class="action-btn delete"
+                  (click)="deleteGuest(guest)"
+                  title="Supprimer"
+                >
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="8">
+              <div class="empty-state">
+                <i class="fas" [class]="search() ? 'fa-search' : 'fa-inbox'"></i>
+                <h3>{{ search() ? 'Aucun résultat' : 'Aucun invité' }}</h3>
+                <p>{{ emptyStateHint() }}</p>
+              </div>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+
+    @if (filtered().length > 0) {
+      <div class="pagination">
+        <button
+          type="button"
+          class="page-btn"
+          [disabled]="currentPage() === 1"
+          (click)="goToPage(currentPage() - 1)"
+        >
+          <i class="fas fa-chevron-left"></i>
+        </button>
+        @for (item of pageNumbers(); track $index) {
+          @if (item === null) {
+            <span style="color: var(--text-light); font-weight: 700">...</span>
+          } @else {
+            <button
+              type="button"
+              class="page-btn"
+              [class.active]="item === currentPage()"
+              (click)="goToPage(item)"
+            >
+              {{ item }}
+            </button>
+          }
+        }
+        <button
+          type="button"
+          class="page-btn"
+          [disabled]="currentPage() === totalPages()"
+          (click)="goToPage(currentPage() + 1)"
+        >
+          <i class="fas fa-chevron-right"></i>
+        </button>
+      </div>
+    }
+  </div>
+</div>
+
+<app-server-url-banner />
+
+@switch (dialog()) {
+  @case ('guest') {
+    <app-guest-form-dialog [guest]="selected()" (saved)="saveGuest($event)" (closed)="close()" />
+  }
+  @case ('table') {
+    <app-table-form-dialog (saved)="saveTable($event)" (closed)="close()" />
+  }
+  @case ('view') {
+    <app-guest-view-dialog [guest]="selected()!" (closed)="close()" />
+  }
+  @case ('qr') {
+    <app-guest-qr-dialog [guest]="selected()!" (closed)="close()" />
+  }
+}
+
+@defer (when dialog() === 'scanner') {
+  @if (dialog() === 'scanner') {
+    <app-scanner-dialog (scanned)="onScanned($event)" (closed)="close()" />
+  }
+}

@@ -1,0 +1,61 @@
+import { describe, expect, it } from 'vitest';
+
+import { type Guest, displayName, fileLabel, seatsFor, statusIcon } from './guest';
+
+function guest(overrides: Partial<Guest> = {}): Guest {
+  return {
+    id: 1,
+    status: 'Monsieur',
+    nom: 'Balondzit',
+    prenom: 'Dan',
+    table: 'Jean 3:16',
+    link: 'Ami',
+    isChristian: 'Non',
+    phone: null,
+    present: false,
+    ...overrides,
+  };
+}
+
+describe('displayName', () => {
+  it('shows the family name alone for a couple', () => {
+    expect(displayName(guest({ status: 'Couple', nom: 'Mubaghu-Lundu', prenom: 'Grel' }))).toBe(
+      'MUBAGHU-LUNDU',
+    );
+  });
+
+  it('adds the first name for an individual', () => {
+    expect(displayName(guest())).toBe('BALONDZIT Dan');
+  });
+
+  it('does not leave a trailing space when the first name is missing', () => {
+    expect(displayName(guest({ prenom: null }))).toBe('BALONDZIT');
+  });
+});
+
+describe('seatsFor', () => {
+  it('counts two seats for a couple', () => {
+    expect(seatsFor(guest({ status: 'Couple' }))).toBe(2);
+  });
+
+  it('counts one seat otherwise', () => {
+    expect(seatsFor(guest({ status: 'Madame' }))).toBe(1);
+  });
+});
+
+describe('statusIcon', () => {
+  it('maps every status to an icon', () => {
+    expect(statusIcon('Couple')).toBe('fa-heart');
+    expect(statusIcon('Madame')).toBe('fa-female');
+  });
+});
+
+describe('fileLabel', () => {
+  it('omits the first name for a couple', () => {
+    expect(fileLabel(guest({ status: 'Couple', nom: 'Oyanandingui' }))).toBe('Oyanandingui');
+  });
+
+  it('joins both names for an individual', () => {
+    expect(fileLabel(guest())).toBe('Balondzit_Dan');
+  });
+});
