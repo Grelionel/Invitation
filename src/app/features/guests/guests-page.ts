@@ -20,8 +20,6 @@ import { TableFormDialog } from './dialogs/table-form-dialog';
 import { ServerUrlBanner } from './server-url-banner';
 
 const ITEMS_PER_PAGE = 10;
-/** How often the laptop re-reads the server, to catch check-ins from the door. */
-const POLL_INTERVAL_MS = 3000;
 
 type OpenDialog = 'guest' | 'table' | 'view' | 'qr' | 'scanner' | null;
 
@@ -112,13 +110,9 @@ export class GuestsPage {
 
   constructor() {
     void this.store.load();
-    // Background poll: a phone marking someone present must show up here
-    // without the operator touching anything. Paused while a dialog is open so
-    // an in-progress edit is not disturbed.
-    const timer = setInterval(() => {
-      if (this.dialog() === null) void this.store.syncFromServer(true);
-    }, POLL_INTERVAL_MS);
-    inject(DestroyRef).onDestroy(() => clearInterval(timer));
+    // A phone marking someone present must show up here without the operator
+    // touching anything.
+    this.store.watch(inject(DestroyRef));
   }
 
   protected name(guest: Guest): string {

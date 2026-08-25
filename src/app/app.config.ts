@@ -2,6 +2,7 @@ import { type ApplicationConfig, provideBrowserGlobalErrorListeners } from '@ang
 import { provideHttpClient, withFetch } from '@angular/common/http';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
 
+import { provideGuestsBackend } from './core/services/guests-backend.provider';
 import { routes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
@@ -11,5 +12,6 @@ export const appConfig: ApplicationConfig = {
     // screen can read `?id=` without touching ActivatedRoute.
     provideRouter(routes, withComponentInputBinding()),
     provideHttpClient(withFetch()),
+    ...provideGuestsBackend(),
   ],
 };

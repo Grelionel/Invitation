@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Guest } from '../../core/models/guest';
 import { GuestStore } from '../../core/services/guest-store.service';
-import { GuestsApiService } from '../../core/services/guests-api.service';
+import { GUESTS_BACKEND } from '../../core/services/guests-backend';
 import { LocalStoreService } from '../../core/services/local-store.service';
 import { ScanPage } from './scan-page';
 
@@ -31,9 +31,11 @@ class FakeLocalStore {
   }
 }
 
-class FakeApi {
+class FakeBackend {
   fetchAll = vi.fn(async () => [GUEST]);
   replaceAll = vi.fn(async () => undefined);
+  setPresence = vi.fn(async (id: number, present: boolean) => ({ ...GUEST, id, present }));
+  watch = vi.fn(() => () => undefined);
 }
 
 async function render(id: string | undefined) {
@@ -43,7 +45,7 @@ async function render(id: string | undefined) {
       provideRouter([]),
       GuestStore,
       { provide: LocalStoreService, useClass: FakeLocalStore },
-      { provide: GuestsApiService, useClass: FakeApi },
+      { provide: GUESTS_BACKEND, useClass: FakeBackend },
     ],
   });
 

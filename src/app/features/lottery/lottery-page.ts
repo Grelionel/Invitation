@@ -50,8 +50,11 @@ export class LotteryPage {
   private timer: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
+    const destroyRef = inject(DestroyRef);
     void this.store.load().then(() => this.store.syncFromServer(true));
-    inject(DestroyRef).onDestroy(() => this.clearTimer());
+    // Someone arriving late must be able to win.
+    this.store.watch(destroyRef);
+    destroyRef.onDestroy(() => this.clearTimer());
   }
 
   protected start(): void {

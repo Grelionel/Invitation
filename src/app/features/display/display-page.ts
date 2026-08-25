@@ -3,6 +3,7 @@ import {
   Component,
   DestroyRef,
   computed,
+  effect,
   inject,
   signal,
 } from '@angular/core';
@@ -13,7 +14,6 @@ import { SlideshowService } from './slideshow.service';
 
 /** How long a freshly checked-in guest stays on screen before the photos return. */
 const GUEST_VISIBLE_MS = 10_000;
-const POLL_INTERVAL_MS = 2000;
 const SLIDE_INTERVAL_MS = 5000;
 
 /**
@@ -53,20 +53,23 @@ export class DisplayPage {
   private hideTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
+    const destroyRef = inject(DestroyRef);
     void this.slideshow.start(SLIDE_INTERVAL_MS);
-    void this.poll();
-    const timer = setInterval(() => void this.poll(), POLL_INTERVAL_MS);
 
-    inject(DestroyRef).onDestroy(() => {
-      clearInterval(timer);
+    // Announce whoever the door checks in. `effect` reacts to the store, so
+    // this screen no longer runs a timer of its own.
+    void this.store.load().then(() => this.store.syncFromServer(true));
+    this.store.watch(destroyRef);
+    effect(() => this.onGuestsChanged(this.store.guests()));
+
+    destroyRef.onDestroy(() => {
       if (this.hideTimer !== null) clearTimeout(this.hideTimer);
       this.slideshow.stop();
     });
   }
 
-  private async poll(): Promise<void> {
-    await this.store.syncFromServer(true);
-    const present = this.store.guests().filter((guest) => guest.present);
+  private onGuestsChanged(guests: readonly Guest[]): void {
+    const present = guests.filter((guest) => guest.present);
 
     // The first poll only records who was already present, otherwise opening
     // the screen mid-evening would replay every earlier arrival.

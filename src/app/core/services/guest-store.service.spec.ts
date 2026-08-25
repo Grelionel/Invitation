@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Guest, GuestDraft } from '../models/guest';
 import { MAX_TABLES, TABLE_NAMES } from '../models/wedding.constants';
 import { GuestStore } from './guest-store.service';
-import { GuestsApiService } from './guests-api.service';
+import { GUESTS_BACKEND } from './guests-backend';
 import { LocalStoreService } from './local-store.service';
 
 /** In-memory stand-ins so the store can be exercised without IndexedDB or a server. */
@@ -20,12 +20,20 @@ class FakeLocalStore {
   }
 }
 
-class FakeApi {
+class FakeBackend {
   guests: Guest[] = [];
   readonly replaceAll = vi.fn(async (guests: readonly Guest[]) => {
     this.guests = [...guests];
   });
   readonly fetchAll = vi.fn(async () => this.guests);
+  readonly setPresence = vi.fn(async (id: number, present: boolean) => {
+    this.guests = this.guests.map((g) => (g.id === id ? { ...g, present } : g));
+    const guest = this.guests.find((g) => g.id === id);
+    if (!guest) throw new Error(`Invité #${id} introuvable`);
+    return guest;
+  });
+  readonly stop = vi.fn();
+  readonly watch = vi.fn(() => this.stop);
 }
 
 function draft(overrides: Partial<GuestDraft> = {}): GuestDraft {
@@ -43,15 +51,15 @@ function draft(overrides: Partial<GuestDraft> = {}): GuestDraft {
 
 describe('GuestStore', () => {
   let store: GuestStore;
-  let api: FakeApi;
+  let backend: FakeBackend;
 
   beforeEach(async () => {
-    api = new FakeApi();
+    backend = new FakeBackend();
     TestBed.configureTestingModule({
       providers: [
         GuestStore,
         { provide: LocalStoreService, useClass: FakeLocalStore },
-        { provide: GuestsApiService, useValue: api },
+        { provide: GUESTS_BACKEND, useValue: backend },
       ],
     });
     store = TestBed.inject(GuestStore);
@@ -68,8 +76,8 @@ describe('GuestStore', () => {
     const second = await store.addGuest(draft({ nom: 'Gretta' }));
 
     expect([first.id, second.id]).toEqual([1, 2]);
-    expect(api.replaceAll).toHaveBeenCalledTimes(2);
-    expect(api.guests).toHaveLength(2);
+    expect(backend.replaceAll).toHaveBeenCalledTimes(2);
+    expect(backend.guests).toHaveLength(2);
   });
 
   it('counts a couple as two seats', async () => {
@@ -119,9 +127,20 @@ describe('GuestStore', () => {
 
   it('rethrows when a check-in cannot reach the server', async () => {
     const guest = await store.addGuest(draft());
-    api.replaceAll.mockRejectedValueOnce(new Error('Failed to fetch'));
+    backend.setPresence.mockRejectedValueOnce(new Error('Failed to fetch'));
 
     await expect(store.setPresence(guest.id, true)).rejects.toThrow('Failed to fetch');
+  });
+
+  it('checks a guest in without resending the whole list', async () => {
+    const guest = await store.addGuest(draft());
+    backend.replaceAll.mockClear();
+
+    await store.setPresence(guest.id, true);
+
+    // The door phone must not overwrite an edit the laptop is making.
+    expect(backend.replaceAll).not.toHaveBeenCalled();
+    expect(backend.setPresence).toHaveBeenCalledWith(guest.id, true);
   });
 
   it('marks a guest present and shares the change', async () => {
@@ -131,11 +150,11 @@ describe('GuestStore', () => {
 
     expect(updated.present).toBe(true);
     expect(store.stats().present).toBe(1);
-    expect(api.guests[0].present).toBe(true);
+    expect(backend.guests[0].present).toBe(true);
   });
 
   it('adopts the server list on sync', async () => {
-    api.guests = [{ ...draft(), id: 7, present: true }];
+    backend.guests = [{ ...draft(), id: 7, present: true }];
 
     await store.syncFromServer(true);
 

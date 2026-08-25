@@ -1,9 +1,9 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
 
 import type { Guest, GuestDraft } from '../models/guest';
 import { seatsFor } from '../models/guest';
 import { MAX_PER_TABLE, MAX_TABLES, TABLE_NAMES } from '../models/wedding.constants';
-import { GuestsApiService } from './guests-api.service';
+import { GUESTS_BACKEND } from './guests-backend';
 import { LocalStoreService } from './local-store.service';
 import { ToastService } from './toast.service';
 
@@ -29,7 +29,7 @@ export interface WeddingStats {
 @Injectable({ providedIn: 'root' })
 export class GuestStore {
   private readonly local = inject(LocalStoreService);
-  private readonly api = inject(GuestsApiService);
+  private readonly backend = inject(GUESTS_BACKEND);
   private readonly toast = inject(ToastService);
 
   private readonly guestList = signal<readonly Guest[]>([]);
@@ -79,6 +79,29 @@ export class GuestStore {
     return this.occupancy().get(table) ?? 0;
   }
 
+  private watchers = 0;
+  private stopWatching: (() => void) | null = null;
+
+  /**
+   * Keeps the list in step with the other devices for as long as the caller
+   * lives. Supabase pushes changes; the local server is polled.
+   *
+   * Subscriptions are shared, so three screens on one device still cost one
+   * connection.
+   */
+  watch(destroyRef: DestroyRef): void {
+    this.watchers++;
+    this.stopWatching ??= this.backend.watch(() => void this.syncFromServer(true));
+
+    destroyRef.onDestroy(() => {
+      this.watchers--;
+      if (this.watchers === 0) {
+        this.stopWatching?.();
+        this.stopWatching = null;
+      }
+    });
+  }
+
   /** Loads persisted state once; concurrent callers share the same promise. */
   load(): Promise<void> {
     this.initialized ??= this.loadOnce();
@@ -110,7 +133,7 @@ export class GuestStore {
   async syncFromServer(silent = false): Promise<void> {
     if (!silent) this.toast.show('Synchronisation en cours...', 'info');
     try {
-      const fromServer = await this.api.fetchAll();
+      const fromServer = await this.backend.fetchAll();
       const changed = JSON.stringify(fromServer) !== JSON.stringify(this.guestList());
       if (!changed) {
         if (!silent) this.toast.success('Liste déjà à jour');
@@ -157,14 +180,12 @@ export class GuestStore {
    * receive the check-in.
    */
   async setPresence(id: number, present: boolean): Promise<Guest> {
-    const fresh = await this.local.read<readonly Guest[]>(GUESTS_KEY, this.guestList());
-    const updated = fresh.map((guest) => (guest.id === id ? { ...guest, present } : guest));
-    const guest = updated.find((g) => g.id === id);
-    if (!guest) throw new Error(`Invité #${id} introuvable`);
-
+    const guest = await this.backend.setPresence(id, present);
+    const updated = this.guestList().map((candidate) =>
+      candidate.id === id ? { ...candidate, present } : candidate,
+    );
     this.guestList.set(updated);
     await this.local.write(GUESTS_KEY, updated);
-    await this.api.replaceAll(updated);
     return guest;
   }
 
@@ -192,7 +213,7 @@ export class GuestStore {
     }
 
     try {
-      await this.api.replaceAll(this.guestList());
+      await this.backend.replaceAll(this.guestList());
     } catch (error) {
       this.toast.error(
         `⚠️ Non envoyé au serveur (${message(error)}). Le téléphone ne verra pas ces données.`,

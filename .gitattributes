@@ -1,0 +1,14 @@
+# Keep the working tree in LF on every platform. Without this, Git's Windows
+# autocrlf rewrites checked-out files to CRLF and `npm run lint` fails.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.avif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary

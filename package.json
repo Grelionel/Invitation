@@ -13,7 +13,8 @@
     "prebuild": "npm run slides:manifest",
     "prestart": "npm run slides:manifest",
     "serve:api": "node server/server.js",
-    "serve": "node server/server.js --static dist/invitation/browser"
+    "serve": "node server/server.js --static dist/invitation/browser",
+    "seed:supabase": "node scripts/seed-supabase.mjs"
   },
   "private": true,
   "packageManager": "npm@11.5.2",
@@ -25,6 +26,7 @@
     "@angular/platform-browser": "^21.2.0",
     "@angular/router": "^21.2.0",
     "@fortawesome/fontawesome-free": "^6.7.2",
+    "@supabase/supabase-js": "^2.109.0",
     "html5-qrcode": "^2.3.8",
     "qrcode": "^1.5.4",
     "rxjs": "~7.8.0",
@@ -40,5 +42,8 @@
     "typescript": "~5.9.2",
     "vitest": "^4.0.8"
   },
-  "description": "Gestion des invités, check-in par QR code et écran d'accueil pour un mariage."
+  "description": "Gestion des invités, check-in par QR code et écran d'accueil pour un mariage.",
+  "engines": {
+    "node": "^20.19.0 || ^22.12.0 || >=24.0.0"
+  }
 }
