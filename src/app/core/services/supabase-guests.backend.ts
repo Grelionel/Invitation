@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { environment } from '../../../environments/environment';
+import { environment, supabaseUrl } from '../../../environments/environment';
 import type { Guest, GuestDraft } from '../models/guest';
 import type { WeddingTable } from '../models/wedding-table';
 import type { GuestsBackend, WeddingSnapshot } from './guests-backend';
@@ -153,7 +153,7 @@ export class SupabaseGuestsBackend implements GuestsBackend {
 
   private client(): Promise<SupabaseClient> {
     this.connection ??= import('@supabase/supabase-js').then(({ createClient }) =>
-      createClient(environment.supabaseUrl, environment.supabaseAnonKey),
+      createClient(supabaseUrl(), environment.supabaseAnonKey),
     );
     return this.connection;
   }
