@@ -46,24 +46,40 @@
 
   <div class="actions-bar">
     <div class="actions-bar-buttons">
-      <button type="button" class="btn btn-primary" (click)="openAddGuest()">
-        <i class="fas fa-user-plus"></i> Ajouter un invité
-      </button>
-      <button type="button" class="btn btn-secondary" (click)="open('table')">
-        <i class="fas fa-plus"></i> Ajouter une table
-      </button>
-      <button type="button" class="btn btn-success" (click)="open('scanner')">
-        <i class="fas fa-qrcode"></i> Scanner
-      </button>
-      <button type="button" class="btn btn-warning" (click)="store.syncFromServer()">
-        <i class="fas fa-sync-alt"></i> Synchroniser
-      </button>
-      <a class="btn btn-secondary" routerLink="/lottery"
-        ><i class="fas fa-gift"></i> Tirage au sort</a
+      <button
+        type="button"
+        class="btn btn-primary btn-icon"
+        (click)="openAddGuest()"
+        title="Ajouter un invité"
+        aria-label="Ajouter un invité"
       >
-      <a class="btn btn-secondary" routerLink="/display"
-        ><i class="fas fa-tv"></i> Écran d'accueil</a
+        <i class="fas fa-user-plus"></i>
+      </button>
+      <button
+        type="button"
+        class="btn btn-secondary btn-icon"
+        (click)="open('table')"
+        title="Ajouter une table"
+        aria-label="Ajouter une table"
       >
+        <i class="fas fa-plus"></i>
+      </button>
+      <a
+        class="btn btn-secondary btn-icon"
+        routerLink="/lottery"
+        title="Tirage au sort"
+        aria-label="Tirage au sort"
+      >
+        <i class="fas fa-gift"></i>
+      </a>
+      <a
+        class="btn btn-secondary btn-icon"
+        routerLink="/display"
+        title="Écran d'accueil"
+        aria-label="Écran d'accueil"
+      >
+        <i class="fas fa-tv"></i>
+      </a>
     </div>
     <div class="search-box">
       <i class="fas fa-search"></i>
@@ -90,7 +106,7 @@
           <th>Nom &amp; Prénom</th>
           <th>Table</th>
           <th>Lien</th>
-          <th>Téléphone</th>
+          <th>Contact</th>
           <th>Présence</th>
           <th style="text-align: center">Actions</th>
         </tr>
@@ -119,20 +135,28 @@
             </td>
             <td>
               @if (guest.phone) {
-                <i class="fab fa-whatsapp" style="color: #25d366; margin-right: 4px"></i
+                <i class="fas fa-phone" style="color: var(--gold); margin-right: 4px"></i
                 >{{ guest.phone }}
               } @else {
                 -
               }
             </td>
             <td>
-              <span class="present-badge" [class]="guest.present ? 'present-yes' : 'present-no'">
+              <!-- The list is the only place attendance is recorded now, so the
+                   badge doubles as the toggle. -->
+              <button
+                type="button"
+                class="present-badge present-toggle"
+                [class]="guest.present ? 'present-yes' : 'present-no'"
+                [title]="guest.present ? 'Marquer comme en attente' : 'Marquer comme présent'"
+                (click)="togglePresence(guest)"
+              >
                 <i
                   class="fas"
                   [class]="guest.present ? 'fa-check-circle' : 'fa-hourglass-half'"
                 ></i>
                 {{ guest.present ? 'Présent' : 'Attend' }}
-              </span>
+              </button>
             </td>
             <td>
               <div class="actions-cell" style="justify-content: center">
@@ -154,16 +178,8 @@
                 </button>
                 <button
                   type="button"
-                  class="action-btn qr"
-                  (click)="open('qr', guest)"
-                  title="Code QR"
-                >
-                  <i class="fas fa-qrcode"></i>
-                </button>
-                <button
-                  type="button"
                   class="action-btn delete"
-                  (click)="deleteGuest(guest)"
+                  (click)="open('confirm', guest)"
                   title="Supprimer"
                 >
                   <i class="fas fa-trash"></i>
@@ -222,8 +238,6 @@
   </div>
 </div>
 
-<app-server-url-banner />
-
 @switch (dialog()) {
   @case ('guest') {
     <app-guest-form-dialog [guest]="selected()" (saved)="saveGuest($event)" (closed)="close()" />
@@ -234,13 +248,14 @@
   @case ('view') {
     <app-guest-view-dialog [guest]="selected()!" (closed)="close()" />
   }
-  @case ('qr') {
-    <app-guest-qr-dialog [guest]="selected()!" (closed)="close()" />
-  }
-}
-
-@defer (when dialog() === 'scanner') {
-  @if (dialog() === 'scanner') {
-    <app-scanner-dialog (scanned)="onScanned($event)" (closed)="close()" />
+  @case ('confirm') {
+    <app-confirm-dialog
+      title="Supprimer l'invité"
+      [message]="deleteMessage()"
+      hint="Cette action est définitive."
+      confirmLabel="Supprimer"
+      (confirmed)="confirmDelete()"
+      (closed)="close()"
+    />
   }
 }

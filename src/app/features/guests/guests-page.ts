@@ -6,44 +6,31 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 
 import { type Guest, type GuestDraft, displayName, statusIcon } from '../../core/models/guest';
 import { MAX_PER_TABLE } from '../../core/models/wedding.constants';
 import { GuestStore } from '../../core/services/guest-store.service';
 import { ToastService } from '../../core/services/toast.service';
+import { ConfirmDialog } from './dialogs/confirm-dialog';
 import { GuestFormDialog } from './dialogs/guest-form-dialog';
-import { GuestQrDialog } from './dialogs/guest-qr-dialog';
 import { GuestViewDialog } from './dialogs/guest-view-dialog';
-import { ScannerDialog } from './dialogs/scanner-dialog';
 import { TableFormDialog } from './dialogs/table-form-dialog';
-import { ServerUrlBanner } from './server-url-banner';
 
 const ITEMS_PER_PAGE = 10;
-/** How often the laptop re-reads the server, to catch check-ins from the door. */
-const POLL_INTERVAL_MS = 3000;
 
-type OpenDialog = 'guest' | 'table' | 'view' | 'qr' | 'scanner' | null;
+type OpenDialog = 'guest' | 'table' | 'view' | 'confirm' | null;
 
 @Component({
   selector: 'app-guests-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
-    RouterLink,
-    GuestFormDialog,
-    GuestQrDialog,
-    GuestViewDialog,
-    ScannerDialog,
-    TableFormDialog,
-    ServerUrlBanner,
-  ],
+  imports: [RouterLink, ConfirmDialog, GuestFormDialog, GuestViewDialog, TableFormDialog],
   templateUrl: './guests-page.html',
   styleUrl: './guests-page.css',
 })
 export class GuestsPage {
   protected readonly store = inject(GuestStore);
   private readonly toast = inject(ToastService);
-  private readonly router = inject(Router);
 
   protected readonly maxPerTable = MAX_PER_TABLE;
   protected readonly search = signal('');
@@ -110,15 +97,19 @@ export class GuestsPage {
     return `Attention: ${detail} dépassent la capacité de ${MAX_PER_TABLE} places !`;
   });
 
+  /** Question shown in the delete confirmation dialog. */
+  protected readonly deleteMessage = computed(() => {
+    const guest = this.selected();
+    return guest
+      ? `Voulez-vous vraiment supprimer ${displayName(guest)} de la liste des invités ?`
+      : '';
+  });
+
   constructor() {
     void this.store.load();
-    // Background poll: a phone marking someone present must show up here
-    // without the operator touching anything. Paused while a dialog is open so
-    // an in-progress edit is not disturbed.
-    const timer = setInterval(() => {
-      if (this.dialog() === null) void this.store.syncFromServer(true);
-    }, POLL_INTERVAL_MS);
-    inject(DestroyRef).onDestroy(() => clearInterval(timer));
+    // The welcome screen usually runs in a second window; a change made here
+    // has to reach it without the operator touching anything.
+    this.store.watch(inject(DestroyRef));
   }
 
   protected name(guest: Guest): string {
@@ -174,10 +165,8 @@ export class GuestsPage {
       this.toast.success('Invité modifié avec succès');
       return;
     }
-    const created = await this.store.addGuest(draft);
+    await this.store.addGuest(draft);
     this.toast.success('Invité ajouté avec succès');
-    // The QR code is what the guest actually receives, so surface it right away.
-    this.open('qr', created);
   }
 
   protected async saveTable(name: string): Promise<void> {
@@ -190,14 +179,21 @@ export class GuestsPage {
     this.toast.success(`Table « ${name.trim()} » ajoutée`);
   }
 
-  protected async deleteGuest(guest: Guest): Promise<void> {
-    if (!confirm(`Supprimer ${displayName(guest)} ?`)) return;
-    await this.store.deleteGuest(guest.id);
-    this.toast.show('Invité supprimé', 'info');
+  /** Attendance is recorded straight from the list now that the QR flow is gone. */
+  protected async togglePresence(guest: Guest): Promise<void> {
+    const present = !guest.present;
+    await this.store.setPresence(guest.id, present);
+    this.toast.show(
+      `${displayName(guest)} marqué comme ${present ? 'Présent' : 'Attend'}`,
+      present ? 'success' : 'info',
+    );
   }
 
-  protected onScanned(guestId: number): void {
+  protected async confirmDelete(): Promise<void> {
+    const guest = this.selected();
     this.close();
-    void this.router.navigate(['/scan'], { queryParams: { id: guestId } });
+    if (!guest) return;
+    await this.store.deleteGuest(guest.id);
+    this.toast.show('Invité supprimé', 'info');
   }
 }

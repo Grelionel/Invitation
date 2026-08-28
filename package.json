@@ -12,8 +12,7 @@
     "slides:manifest": "node scripts/generate-slides-manifest.mjs",
     "prebuild": "npm run slides:manifest",
     "prestart": "npm run slides:manifest",
-    "serve:api": "node server/server.js",
-    "serve": "node server/server.js --static dist/invitation/browser"
+    "seed:supabase": "node scripts/seed-supabase.mjs"
   },
   "private": true,
   "packageManager": "npm@11.5.2",
@@ -25,8 +24,7 @@
     "@angular/platform-browser": "^21.2.0",
     "@angular/router": "^21.2.0",
     "@fortawesome/fontawesome-free": "^6.7.2",
-    "html5-qrcode": "^2.3.8",
-    "qrcode": "^1.5.4",
+    "@supabase/supabase-js": "^2.109.0",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"
   },
@@ -34,11 +32,13 @@
     "@angular/build": "^21.2.21",
     "@angular/cli": "^21.2.21",
     "@angular/compiler-cli": "^21.2.0",
-    "@types/qrcode": "^1.5.6",
     "jsdom": "^28.0.0",
     "prettier": "^3.8.1",
     "typescript": "~5.9.2",
     "vitest": "^4.0.8"
   },
-  "description": "Gestion des invités, check-in par QR code et écran d'accueil pour un mariage."
+  "description": "Gestion des invités, présences et écran d'accueil pour un mariage.",
+  "engines": {
+    "node": "^20.19.0 || ^22.12.0 || >=24.0.0"
+  }
 }

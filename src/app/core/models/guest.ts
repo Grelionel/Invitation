@@ -42,8 +42,3 @@ export function displayName(guest: Guest): string {
 export function seatsFor(guest: Pick<Guest, 'status'>): number {
   return guest.status === 'Couple' ? 2 : 1;
 }
-
-/** Filename-safe label used for the downloaded QR image. */
-export function fileLabel(guest: Guest): string {
-  return guest.status === 'Couple' ? guest.nom : `${guest.nom}_${guest.prenom ?? ''}`;
-}

@@ -25,8 +25,7 @@
               }
             ],
             "styles": ["src/styles.css"],
-            "outputPath": "dist/invitation",
-            "allowedCommonJsDependencies": ["qrcode"]
+            "outputPath": "dist/invitation"
           },
           "configurations": {
             "production": {
@@ -62,10 +61,7 @@
               "buildTarget": "invitation:build:development"
             }
           },
-          "defaultConfiguration": "development",
-          "options": {
-            "proxyConfig": "proxy.conf.json"
-          }
+          "defaultConfiguration": "development"
         },
         "test": {
           "builder": "@angular/build:unit-test"

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { type Guest, displayName, fileLabel, seatsFor, statusIcon } from './guest';
+import { type Guest, displayName, seatsFor, statusIcon } from './guest';
 
 function guest(overrides: Partial<Guest> = {}): Guest {
   return {
@@ -47,15 +47,5 @@ describe('statusIcon', () => {
   it('maps every status to an icon', () => {
     expect(statusIcon('Couple')).toBe('fa-heart');
     expect(statusIcon('Madame')).toBe('fa-female');
-  });
-});
-
-describe('fileLabel', () => {
-  it('omits the first name for a couple', () => {
-    expect(fileLabel(guest({ status: 'Couple', nom: 'Oyanandingui' }))).toBe('Oyanandingui');
-  });
-
-  it('joins both names for an individual', () => {
-    expect(fileLabel(guest())).toBe('Balondzit_Dan');
   });
 });

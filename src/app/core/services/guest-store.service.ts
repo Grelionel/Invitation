@@ -1,14 +1,16 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
 
 import type { Guest, GuestDraft } from '../models/guest';
 import { seatsFor } from '../models/guest';
 import { MAX_PER_TABLE, MAX_TABLES, TABLE_NAMES } from '../models/wedding.constants';
-import { GuestsApiService } from './guests-api.service';
+import { GUESTS_BACKEND } from './guests-backend';
 import { LocalStoreService } from './local-store.service';
 import { ToastService } from './toast.service';
 
 const GUESTS_KEY = 'weddingGuests';
 const TABLES_KEY = 'weddingTables';
+/** Name of the channel the app's windows use to tell each other about a write. */
+const CHANNEL_NAME = 'wedding-store';
 
 export interface WeddingStats {
   readonly guests: number;
@@ -23,13 +25,14 @@ export interface WeddingStats {
  * Single source of truth for guests and tables.
  *
  * Writes go to IndexedDB first (so nothing is lost if the network is down) and
- * are then pushed to the server, which is what lets a phone at the door and the
- * laptop in the room see the same list.
+ * are then pushed to Supabase, which is what lets the laptop, the hall screen
+ * and a phone see the same list — a browser's own storage never leaves its
+ * device.
  */
 @Injectable({ providedIn: 'root' })
 export class GuestStore {
   private readonly local = inject(LocalStoreService);
-  private readonly api = inject(GuestsApiService);
+  private readonly backend = inject(GUESTS_BACKEND);
   private readonly toast = inject(ToastService);
 
   private readonly guestList = signal<readonly Guest[]>([]);
@@ -79,6 +82,52 @@ export class GuestStore {
     return this.occupancy().get(table) ?? 0;
   }
 
+  private watchers = 0;
+  private stopWatching: (() => void) | null = null;
+  private channel: BroadcastChannel | null = null;
+
+  /**
+   * Keeps the list in step with the other screens for as long as the caller
+   * lives. Supabase pushes changes made on any device; the broadcast channel
+   * covers the windows of this browser, which is all there is when Supabase
+   * has not been configured.
+   *
+   * Subscriptions are shared, so three screens in one window still cost one
+   * connection.
+   */
+  watch(destroyRef: DestroyRef): void {
+    this.watchers++;
+    this.stopWatching ??= this.startWatching();
+
+    destroyRef.onDestroy(() => {
+      this.watchers--;
+      if (this.watchers === 0) {
+        this.stopWatching?.();
+        this.stopWatching = null;
+      }
+    });
+  }
+
+  private startWatching(): () => void {
+    const stopBackend = this.backend?.watch(() => void this.pull(true)) ?? null;
+
+    if (typeof BroadcastChannel !== 'undefined') {
+      this.channel = new BroadcastChannel(CHANNEL_NAME);
+      this.channel.onmessage = () => void this.reloadLocal();
+    }
+
+    return () => {
+      stopBackend?.();
+      this.channel?.close();
+      this.channel = null;
+    };
+  }
+
+  /** Announces a write so the other windows of this browser pick it up. */
+  private broadcast(): void {
+    this.channel?.postMessage('changed');
+  }
+
   /** Loads persisted state once; concurrent callers share the same promise. */
   load(): Promise<void> {
     this.initialized ??= this.loadOnce();
@@ -99,34 +148,47 @@ export class GuestStore {
       this.guestList.set([]);
       this.toast.error(`Erreur de chargement: ${message(error)}`);
     }
+
+    // The cached copy paints immediately; the shared list is what counts.
+    await this.pull(false);
   }
 
   /**
-   * Pulls the server's list into the app.
+   * Pulls the shared list into the app, and does nothing when it already
+   * matches.
    *
-   * `silent` is used by the background poller: it stays quiet on network blips
-   * and skips the update entirely when nothing changed.
+   * `background` marks the calls driven by the realtime subscription: a change
+   * arriving mid-evening is worth announcing, while a network blip is not —
+   * the next change will retry. The initial load is the mirror image: there is
+   * no change to announce, but the operator must know when the shared list
+   * could not be reached.
    */
-  async syncFromServer(silent = false): Promise<void> {
-    if (!silent) this.toast.show('Synchronisation en cours...', 'info');
+  private async pull(background: boolean): Promise<void> {
+    if (!this.backend) return;
     try {
-      const fromServer = await this.api.fetchAll();
-      const changed = JSON.stringify(fromServer) !== JSON.stringify(this.guestList());
-      if (!changed) {
-        if (!silent) this.toast.success('Liste déjà à jour');
-        return;
-      }
-      this.guestList.set(fromServer);
-      await this.local.write(GUESTS_KEY, fromServer);
-      this.toast.show(
-        silent
-          ? 'Liste mise à jour (changement détecté)'
-          : `${fromServer.length} invités synchronisés !`,
-        silent ? 'info' : 'success',
-      );
+      const shared = await this.backend.fetchAll();
+      if (JSON.stringify(shared) === JSON.stringify(this.guestList())) return;
+      this.guestList.set(shared);
+      await this.local.write(GUESTS_KEY, shared);
+      if (background) this.toast.show('Liste mise à jour', 'info');
     } catch (error) {
-      if (silent) return;
-      this.toast.error(`Serveur inaccessible. Vérifiez l'IP et le WiFi. (${message(error)})`);
+      if (!background) {
+        this.toast.error(`Liste partagée inaccessible (${message(error)}). Affichage hors ligne.`);
+      }
+    }
+  }
+
+  /** Re-reads IndexedDB after another window of this browser reported a write. */
+  private async reloadLocal(): Promise<void> {
+    try {
+      const [tables, guests] = await Promise.all([
+        this.local.read<readonly string[] | null>(TABLES_KEY, null),
+        this.local.read<readonly Guest[] | null>(GUESTS_KEY, null),
+      ]);
+      if (tables) this.tableList.set(tables);
+      if (guests) this.guestList.set(guests);
+    } catch {
+      // Ignored on purpose — the next broadcast will try again.
     }
   }
 
@@ -152,20 +214,32 @@ export class GuestStore {
   }
 
   /**
-   * Marks attendance from the door-side scanner. Unlike the other mutations
-   * this one rethrows, because the operator must know when the laptop did not
-   * receive the check-in.
+   * Marks attendance from the list.
+   *
+   * This one updates a single row rather than resending everything, so a
+   * device pointing arrivals cannot clobber an edit another one is making.
    */
-  async setPresence(id: number, present: boolean): Promise<Guest> {
-    const fresh = await this.local.read<readonly Guest[]>(GUESTS_KEY, this.guestList());
-    const updated = fresh.map((guest) => (guest.id === id ? { ...guest, present } : guest));
-    const guest = updated.find((g) => g.id === id);
-    if (!guest) throw new Error(`Invité #${id} introuvable`);
-
+  async setPresence(id: number, present: boolean): Promise<void> {
+    const updated = this.guestList().map((guest) =>
+      guest.id === id ? { ...guest, present } : guest,
+    );
     this.guestList.set(updated);
-    await this.local.write(GUESTS_KEY, updated);
-    await this.api.replaceAll(updated);
-    return guest;
+
+    try {
+      await this.local.write(GUESTS_KEY, updated);
+      this.broadcast();
+    } catch (error) {
+      this.toast.error(`Erreur de sauvegarde: ${message(error)}`);
+    }
+
+    if (!this.backend) return;
+    try {
+      await this.backend.setPresence(id, present);
+    } catch (error) {
+      this.toast.error(
+        `⚠️ Pointage non partagé (${message(error)}). Les autres écrans l'ignorent.`,
+      );
+    }
   }
 
   /** @returns an error message, or `null` when the table was added. */
@@ -182,20 +256,22 @@ export class GuestStore {
     return null;
   }
 
-  /** Local write first, then a best-effort push so the phones see the change. */
+  /** Local write first, then a best-effort push so the other screens see it. */
   private async persist(): Promise<void> {
     try {
       await this.local.write(GUESTS_KEY, this.guestList());
       await this.local.write(TABLES_KEY, this.tableList());
+      this.broadcast();
     } catch (error) {
       this.toast.error(`Erreur de sauvegarde: ${message(error)}`);
     }
 
+    if (!this.backend) return;
     try {
-      await this.api.replaceAll(this.guestList());
+      await this.backend.replaceAll(this.guestList());
     } catch (error) {
       this.toast.error(
-        `⚠️ Non envoyé au serveur (${message(error)}). Le téléphone ne verra pas ces données.`,
+        `⚠️ Non envoyé à la base (${message(error)}). Les autres appareils ne verront pas ces données.`,
       );
     }
   }
