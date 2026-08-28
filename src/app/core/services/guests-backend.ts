@@ -1,29 +1,46 @@
 import { InjectionToken } from '@angular/core';
 
-import type { Guest } from '../models/guest';
+import type { Guest, GuestDraft } from '../models/guest';
+import type { WeddingTable } from '../models/wedding-table';
+
+/** One consistent read of both entities: guests are meaningless without tables. */
+export interface WeddingSnapshot {
+  readonly tables: readonly WeddingTable[];
+  readonly guests: readonly Guest[];
+}
 
 /**
  * What the guest list needs from the database shared by every device.
  *
  * Supabase is the one implementation. The store talks only to this interface,
  * so the client library never leaks into the rest of the app.
+ *
+ * Every mutation touches a single row. The list is never resent wholesale:
+ * identifiers are minted by Postgres, and a blanket rewrite would undo whatever
+ * another device changed in the meantime.
  */
 export interface GuestsBackend {
-  fetchAll(): Promise<Guest[]>;
+  fetchAll(): Promise<WeddingSnapshot>;
 
-  /** Replaces the whole list. Used by the management screen only. */
-  replaceAll(guests: readonly Guest[]): Promise<void>;
+  /** @returns the stored guest, carrying the id the database minted. */
+  addGuest(draft: GuestDraft): Promise<Guest>;
+
+  updateGuest(id: number, draft: GuestDraft): Promise<Guest>;
+
+  deleteGuest(id: number): Promise<void>;
 
   /**
    * Marks one guest present or waiting.
    *
-   * Separate from `replaceAll` on purpose: a device pointing arrivals must not
-   * overwrite an edit another one is making at the same moment.
+   * Writes the hour of arrival rather than a flag, so the welcome screen can
+   * tell a new arrival from someone who has been in the room for an hour.
    */
   setPresence(id: number, present: boolean): Promise<Guest>;
 
+  addTable(name: string, seatLimit: number): Promise<WeddingTable>;
+
   /**
-   * Calls `onChange` whenever the list changes elsewhere, and returns a
+   * Calls `onChange` whenever the data changes elsewhere, and returns a
    * function that stops listening.
    */
   watch(onChange: () => void): () => void;

@@ -1,4 +1,5 @@
--- Schéma de la base Supabase.
+-- Schéma de la base Supabase. Fichier unique : tout est ici, structure et
+-- règles d'accès comprises.
 --
 -- À coller dans Supabase → SQL Editor → New query, puis exécuter une fois.
 -- Ce fichier est réexécutable sans risque tant qu'il n'y a pas de données.
@@ -153,10 +154,18 @@ drop policy if exists "tables gestion"    on public.wedding_table;
 
 -- ATTENTION — voir la section « Sécurité » du README.
 --
--- Ces règles ouvrent la base à toute personne qui charge le site, donc à tous
--- vos invités : ils peuvent lire la liste complète, numéros de téléphone
--- compris. C'est le réglage le plus simple, pas le plus sûr ;
--- `schema-secure.sql` le restreint.
+-- L'application n'a pas d'écran de connexion : elle parle à la base avec la
+-- clé « anon », publique par conception. Ces règles ouvrent donc la base à
+-- quiconque connaît l'URL du site — lecture ET écriture de la liste entière,
+-- numéros de téléphone compris.
+--
+-- C'est un choix assumé : personne d'autre que vous n'est censé avoir l'URL,
+-- et le jour du mariage compte plus qu'un mot de passe à retrouver. Ne publiez
+-- pas l'adresse, et videz la base une fois la fête passée.
+--
+-- Une variante verrouillée derrière un compte opérateur a existé
+-- (`supabase/schema-secure.sql`, commit de4217c) ; elle demandait un écran de
+-- connexion que l'application n'a pas.
 --
 -- Les droits sont séparés par opération plutôt qu'en un seul « for all » :
 -- la suppression est ainsi une décision distincte, et non un effet de bord.

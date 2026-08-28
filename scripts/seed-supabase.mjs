@@ -27,51 +27,77 @@ if (!Array.isArray(guests)) {
   process.exit(1);
 }
 
-const endpoint = `${url.replace(/\/+$/, '')}/rest/v1/guests`;
+const base = `${url.replace(/\/+$/, '')}/rest/v1`;
 const headers = { apikey: key, Authorization: `Bearer ${key}` };
 
-// La liste en ligne fait foi le jour J : on ne l'écrase pas par accident.
-const existing = await fetch(`${endpoint}?select=id`, { headers });
-if (existing.ok) {
-  const rows = await existing.json();
-  if (rows.length > 0 && !process.argv.includes('--force')) {
-    console.error(
-      `La base contient déjà ${rows.length} invité(s). ` +
-        'Relancez avec --force pour les remplacer.',
-    );
-    process.exit(1);
-  }
-} else {
-  console.error(`Lecture impossible (HTTP ${existing.status}):`, await existing.text());
-  console.error("Avez-vous exécuté supabase/schema.sql dans l'éditeur SQL ?");
+async function read(path, hint) {
+  const response = await fetch(`${base}/${path}`, { headers });
+  if (response.ok) return response.json();
+  console.error(`Lecture impossible (HTTP ${response.status}):`, await response.text());
+  console.error(hint);
   process.exit(1);
 }
 
-// Les noms de colonnes diffèrent du modèle : `table` est réservé en SQL.
+// La liste en ligne fait foi le jour J : on ne l'écrase pas par accident.
+const existing = await read('guest?select=id', 'Avez-vous exécuté supabase/schema.sql ?');
+if (existing.length > 0 && !process.argv.includes('--force')) {
+  console.error(
+    `La base contient déjà ${existing.length} invité(s). ` +
+      'Relancez avec --force pour les remplacer.',
+  );
+  process.exit(1);
+}
+
+// La table de la salle est une entité à part entière : le fichier la nomme,
+// la base l'identifie. Le schéma sème les 30 passages bibliques, donc chaque
+// nom devrait déjà s'y trouver.
+const tables = await read(
+  'wedding_table?select=id,name',
+  'La table wedding_table est-elle bien créée ?',
+);
+const idByName = new Map(tables.map((table) => [table.name, table.id]));
+
+const unknown = [...new Set(guests.map((guest) => guest.table))].filter(
+  (name) => !idByName.has(name),
+);
+if (unknown.length > 0) {
+  console.error(`Tables absentes de la base : ${unknown.join(', ')}`);
+  console.error('Ajoutez-les dans wedding_table avant de relancer.');
+  process.exit(1);
+}
+
+// `id`, `seats` et `present` sont mintés ou calculés par Postgres : les
+// envoyer serait refusé. La présence passe par l'heure d'arrivée.
+const now = new Date().toISOString();
 const rows = guests.map((guest) => ({
-  id: guest.id,
   status: guest.status,
   nom: guest.nom,
   prenom: guest.prenom ?? null,
-  table_name: guest.table,
+  wedding_table_id: idByName.get(guest.table),
   link: guest.link,
   is_christian: guest.isChristian ?? null,
   phone: guest.phone ?? null,
-  present: guest.present ?? false,
+  checked_in_at: guest.present ? now : null,
 }));
 
-const response = await fetch(endpoint, {
+if (process.argv.includes('--force') && existing.length > 0) {
+  const wipe = await fetch(`${base}/guest?id=gte.0`, { method: 'DELETE', headers });
+  if (!wipe.ok) {
+    console.error(`Suppression impossible (HTTP ${wipe.status}):`, await wipe.text());
+    process.exit(1);
+  }
+}
+
+const response = await fetch(`${base}/guest`, {
   method: 'POST',
-  headers: {
-    ...headers,
-    'Content-Type': 'application/json',
-    Prefer: 'resolution=merge-duplicates',
-  },
+  headers: { ...headers, 'Content-Type': 'application/json' },
   body: JSON.stringify(rows),
 });
 
 if (!response.ok) {
   console.error(`Échec (HTTP ${response.status}):`, await response.text());
+  // Le trigger de capacité refuse un envoi qui dépasse le nombre de couverts.
+  console.error('Une table dépasse-t-elle sa capacité ?');
   process.exit(1);
 }
 console.log(`${rows.length} invité(s) envoyés vers ${url}`);

@@ -32,7 +32,8 @@ pour développer, pas pour le jour J.
 
 1. Créez un projet sur [supabase.com](https://supabase.com) (offre gratuite).
 2. Ouvrez **SQL Editor → New query**, collez le contenu de
-   `supabase/schema.sql`, puis **Run**. Cela crée la table et ses règles d'accès.
+   `supabase/schema.sql`, puis **Run**. Cela crée les deux tables, les règles
+   que la base fait respecter et les 30 passages bibliques.
 
 ### 2. Brancher l'application
 
@@ -70,13 +71,17 @@ Chaque `git push` redéclenche un déploiement.
 
 ### Sécurité : à lire avant le jour J
 
-Avec les règles de `supabase/schema.sql`, toute personne qui ouvre le site
-reçoit la clé `anon` et peut **lire toute la liste — numéros de téléphone
-compris — et la modifier.**
+L'application n'a pas d'écran de connexion : elle parle à la base avec la clé
+`anon`, qui vit dans le code du site. Toute personne qui ouvre l'URL peut donc
+**lire toute la liste — numéros de téléphone compris — et la modifier.**
 
-Si cela vous gêne, exécutez ensuite `supabase/schema-secure.sql`. Un visiteur ne
-voit alors plus que les colonnes non personnelles ; la gestion demande un compte
-opérateur, à créer dans **Authentication → Users**.
+C'est un choix assumé : personne d'autre que vous n'est censé connaître
+l'adresse, et le jour du mariage compte plus qu'un mot de passe à retrouver. Ne
+publiez pas l'URL, et videz la base une fois la fête passée.
+
+Une variante verrouillée derrière un compte opérateur a existé
+(`supabase/schema-secure.sql`, commit `de4217c`) ; elle demandait un écran de
+connexion que l'application n'a pas.
 
 ## Le jour du mariage
 
@@ -113,17 +118,27 @@ Supabase **pousse** les changements, l'écran de la salle réagit donc sans dél
 
 ## Données
 
-La liste vit dans Supabase (table `guests`). Chaque navigateur en garde une
-copie dans IndexedDB, ce qui permet d'afficher la liste immédiatement au
-chargement et de ne rien perdre pendant une coupure. L'application prévient
-quand une modification n'a pas pu être partagée.
+Deux entités dans Supabase : `wedding_table`, la table de la salle nommée
+d'après un passage biblique, et `guest`, qui la référence. Chaque navigateur
+garde une copie de l'ensemble dans IndexedDB, ce qui permet d'afficher la liste
+immédiatement au chargement et de ne rien perdre pendant une coupure.
 
-Le pointage d'une présence ne réécrit qu'une ligne, jamais la liste entière :
-un appareil qui pointe à l'entrée ne peut pas effacer une modification en cours
-sur le PC.
+**Ce que la base tient elle-même**, et que l'application ne recalcule donc pas :
 
-Les tables (les passages bibliques) restent locales au navigateur : elles ne
-changent pas pendant la soirée et aucun autre appareil ne s'en sert.
+| Règle                              | Comment                               |
+| ---------------------------------- | ------------------------------------- |
+| Les identifiants                   | `generated always as identity`        |
+| « Un couple occupe deux couverts » | colonne générée `seats`               |
+| « La table est pleine »            | trigger, avec verrou sur la table     |
+| L'heure d'arrivée                  | `checked_in_at` (`present` en dérive) |
+
+Chaque modification ne touche qu'une ligne, jamais la liste entière : deux
+appareils qui écrivent en même temps ne s'effacent donc pas l'un l'autre. Quand
+la base refuse une écriture — une table pleine, le plus souvent — l'application
+le dit et n'affiche pas un invité qui n'existe pas.
+
+Sans identifiants Supabase, l'application sème elle-même les 30 tables et minte
+ses propres identifiants, mais ne partage rien.
 
 ## Photos de l'écran d'accueil
 
@@ -141,14 +156,14 @@ Le manifeste est aussi régénéré automatiquement avant `npm start` et
 ```
 src/app/
   core/           modèles, constantes et services partagés
-    models/       Guest, tables bibliques, limites de la salle
+    models/       Guest et WeddingTable, miroirs des deux tables de la base
     services/     stockage IndexedDB, magasin d'état, notifications
                   et la base partagée (Supabase)
   features/       une page par dossier (guests, lottery, display)
   shared/         composants réutilisables (modale, toasts)
 src/environments/ URL et clé Supabase (vides = chaque appareil pour soi)
 src/styles/       feuilles de style historiques du site statique
-supabase/         le SQL à exécuter une fois dans Supabase
+supabase/         schema.sql (à exécuter une fois) et son diagramme
 scripts/          manifeste des photos, envoi de la liste vers Supabase
 data/             liste des invités servant de jeu de départ
 legacy/           invite.css, conservé mais inutilisé par l'application

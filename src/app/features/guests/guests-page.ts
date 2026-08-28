@@ -9,7 +9,6 @@ import {
 import { RouterLink } from '@angular/router';
 
 import { type Guest, type GuestDraft, displayName, statusIcon } from '../../core/models/guest';
-import { MAX_PER_TABLE } from '../../core/models/wedding.constants';
 import { GuestStore } from '../../core/services/guest-store.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmDialog } from './dialogs/confirm-dialog';
@@ -32,7 +31,6 @@ export class GuestsPage {
   protected readonly store = inject(GuestStore);
   private readonly toast = inject(ToastService);
 
-  protected readonly maxPerTable = MAX_PER_TABLE;
   protected readonly search = signal('');
   protected readonly page = signal(1);
   protected readonly dialog = signal<OpenDialog>(null);
@@ -93,8 +91,10 @@ export class GuestsPage {
   protected readonly occupancyWarning = computed(() => {
     const over = this.store.overCapacityTables();
     if (over.length === 0) return null;
-    const detail = over.map(([table, seats]) => `${table} (${seats}/${MAX_PER_TABLE})`).join(', ');
-    return `Attention: ${detail} dépassent la capacité de ${MAX_PER_TABLE} places !`;
+    const detail = over
+      .map(({ table, seats }) => `${table.name} (${seats}/${table.seatLimit})`)
+      .join(', ');
+    return `Attention: ${detail} dépassent leur capacité !`;
   });
 
   /** Question shown in the delete confirmation dialog. */
@@ -160,13 +160,18 @@ export class GuestsPage {
   protected async saveGuest(draft: GuestDraft): Promise<void> {
     const editing = this.selected();
     this.close();
-    if (editing) {
-      await this.store.updateGuest(editing.id, draft);
-      this.toast.success('Invité modifié avec succès');
-      return;
+    try {
+      if (editing) {
+        await this.store.updateGuest(editing.id, draft);
+        this.toast.success('Invité modifié avec succès');
+        return;
+      }
+      await this.store.addGuest(draft);
+      this.toast.success('Invité ajouté avec succès');
+    } catch (error) {
+      // A full table is refused by Postgres, not by the form.
+      this.toast.error(reason(error));
     }
-    await this.store.addGuest(draft);
-    this.toast.success('Invité ajouté avec succès');
   }
 
   protected async saveTable(name: string): Promise<void> {
@@ -182,18 +187,30 @@ export class GuestsPage {
   /** Attendance is recorded straight from the list now that the QR flow is gone. */
   protected async togglePresence(guest: Guest): Promise<void> {
     const present = !guest.present;
-    await this.store.setPresence(guest.id, present);
-    this.toast.show(
-      `${displayName(guest)} marqué comme ${present ? 'Présent' : 'Attend'}`,
-      present ? 'success' : 'info',
-    );
+    try {
+      await this.store.setPresence(guest.id, present);
+      this.toast.show(
+        `${displayName(guest)} marqué comme ${present ? 'Présent' : 'Attend'}`,
+        present ? 'success' : 'info',
+      );
+    } catch (error) {
+      this.toast.error(`Pointage non enregistré: ${reason(error)}`);
+    }
   }
 
   protected async confirmDelete(): Promise<void> {
     const guest = this.selected();
     this.close();
     if (!guest) return;
-    await this.store.deleteGuest(guest.id);
-    this.toast.show('Invité supprimé', 'info');
+    try {
+      await this.store.deleteGuest(guest.id);
+      this.toast.show('Invité supprimé', 'info');
+    } catch (error) {
+      this.toast.error(`Suppression refusée: ${reason(error)}`);
+    }
   }
+}
+
+function reason(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

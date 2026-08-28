@@ -31,7 +31,7 @@
         @for (option of tableOptions(); track option.name) {
           <option [value]="option.name" [disabled]="option.full">
             {{ option.name
-            }}{{ option.full ? ' (PLEINE)' : ' (' + option.seats + '/' + maxPerTable + ')' }}
+            }}{{ option.full ? ' (PLEINE)' : ' (' + option.seats + '/' + option.limit + ')' }}
           </option>
         }
       </select>

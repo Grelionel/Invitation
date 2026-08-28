@@ -51,6 +51,12 @@ export const GUEST_STATUSES: readonly GuestStatus[] = [
 
 export const MAX_GUESTS = 300;
 export const MAX_TABLES = 30;
+/**
+ * Covers a new table gets by default.
+ *
+ * The database owns the real limit, one per table — nothing says every table in
+ * the room seats the same number. This is only the value the app proposes.
+ */
 export const MAX_PER_TABLE = 10;
 
 /** Links eligible for the raffle — church guests are excluded by design. */
