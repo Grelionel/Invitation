@@ -40,6 +40,14 @@ export interface GuestsBackend {
   addTable(name: string, seatLimit: number): Promise<WeddingTable>;
 
   /**
+   * Removes an empty table.
+   *
+   * @throws when guests still sit there — the foreign key is `on delete
+   *   restrict`, so the database is the one that says no.
+   */
+  deleteTable(id: number): Promise<void>;
+
+  /**
    * Calls `onChange` whenever the data changes elsewhere, and returns a
    * function that stops listening.
    */

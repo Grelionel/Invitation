@@ -35,6 +35,17 @@ pour développer, pas pour le jour J.
    `supabase/schema.sql`, puis **Run**. Cela crée les deux tables, les règles
    que la base fait respecter et les 30 passages bibliques.
 
+### 1 bis. Mettre à jour une base déjà créée
+
+Si la base existait avant l'ajout du QR code et du tirage par catégorie,
+exécutez **une fois** `supabase/migration-lien-genre.sql` dans le SQL Editor. Il
+fusionne « Ami » et « Connaissance » en un seul cercle et ajoute la colonne
+`gender`, sur laquelle repose la répartition des vingt cadeaux.
+
+La migration met tous les invités existants à « Homme » — la base ne peut pas le
+deviner. Le fichier se termine par la requête qui corrige les « Madame » et
+« Mademoiselle » d'un coup ; relisez la liste ensuite.
+
 ### 2. Brancher l'application
 
 Dans **Project Settings → Data API**, relevez l'URL du projet et la clé
@@ -87,15 +98,56 @@ connexion que l'application n'a pas.
 
 1. Ouvrez le site sur le PC qui tient la liste.
 2. Ajoutez les invités : statut, nom, prénom, table, lien, chrétien et contact.
-3. À l'arrivée d'un invité, cliquez sur son badge **Attend** dans la colonne
-   « Présence » : il passe à **Présent**.
-4. Dans la salle : ouvrez `/display` en plein écran. Il diffuse les photos et
-   souhaite la bienvenue à chaque invité dès qu'il est marqué présent.
-5. En fin de soirée : `/lottery` tire au sort parmi les invités présents et
-   éligibles.
+   Le lien porte le genre — « Parent (Femme) », « Collègue (Homme) »… — parce que
+   le tirage au sort répartit ses lots entre les deux.
+3. **Avant le jour J**, imprimez les billets : ouvrez chaque invité et
+   téléchargez son QR code. Il contient son nom, sa table, et le lien qui ouvre
+   sa fiche.
+4. À l'arrivée : scannez le billet avec l'appareil photo du téléphone. Le site
+   s'ouvre sur la fiche de l'invité, avec un bouton **Confirmer la présence**.
+   Le badge **Attend** de la liste fait la même chose, pour un invité qui a
+   oublié son billet.
+5. Dans la salle : ouvrez `/display` en plein écran. Il diffuse les photos et
+   souhaite la bienvenue à chaque invité dès qu'il est marqué présent. Le bouton
+   en bas à droite ajoute des photos en cours de soirée.
+6. En fin de soirée : `/lottery` distribue les vingt cadeaux, cercle par cercle.
 
 Le pointage peut se faire depuis n'importe quel appareil ouvert sur le site :
 Supabase **pousse** les changements, l'écran de la salle réagit donc sans délai.
+
+## Les QR codes des billets
+
+Chaque invité a un QR code, visible dans sa fiche et téléchargeable en PNG. Il
+ne contient pas une carte de visite mais **un lien** vers le site, portant le
+numéro de l'invité, son nom et sa table : l'appareil photo d'un téléphone
+l'ouvre donc sans rien installer, et le site affiche la fiche avec le bouton
+**Confirmer la présence**.
+
+Si vous imprimez les billets depuis `localhost`, renseignez `publicBaseUrl` dans
+`src/environments/environment.ts` avec l'adresse publique du site — sinon les QR
+codes pointeront vers le PC de saisie et aucun téléphone ne les ouvrira.
+
+## Le tirage au sort
+
+Vingt cadeaux, répartis entre six cercles :
+
+| Cercle                     | Cadeaux |
+| -------------------------- | ------- |
+| Parent (Homme)             | 4       |
+| Ami / Connaissance (Homme) | 3       |
+| Collègue (Homme)           | 3       |
+| Parent (Femme)             | 4       |
+| Ami / Connaissance (Femme) | 3       |
+| Collègue (Femme)           | 3       |
+
+Sont tirés au sort les invités **présents**, ayant répondu **« Chrétien : Non »**
+et appartenant à l'un de ces six cercles — les invités de l'Église en sont
+exclus par construction. Personne ne gagne deux fois.
+
+Le bouton principal tire un cercle au hasard, pondéré par ce qu'il lui reste de
+cadeaux ; chaque carte permet aussi de tirer un cercle en particulier. Les
+gagnants sont gardés dans le navigateur qui a fait le tirage : rechargez la page
+sans crainte, mais faites tous les tirages depuis le même appareil.
 
 ## Pages
 
@@ -150,6 +202,11 @@ npm run slides:manifest
 
 Le manifeste est aussi régénéré automatiquement avant `npm start` et
 `npm run build`.
+
+Le soir même, le bouton **Ajouter des photos** en bas à droite de `/display`
+ajoute des images sans recompiler. Elles sont réduites puis gardées dans le
+navigateur de cet écran : ajoutez-les depuis la machine branchée au
+vidéoprojecteur, elles ne suivent pas sur les autres appareils.
 
 ## Structure
 

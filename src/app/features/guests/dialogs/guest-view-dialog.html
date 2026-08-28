@@ -1,14 +1,43 @@
 <app-modal
-  title="Détails de l'invité"
-  icon="fa-eye"
-  iconColor="var(--info)"
+  [title]="title()"
+  [icon]="arrival() ? 'fa-qrcode' : 'fa-eye'"
+  [iconColor]="arrival() ? 'var(--gold)' : 'var(--info)'"
+  maxWidth="620px"
   (closed)="closed.emit()"
 >
   <div class="view-card">
     <div class="view-avatar"><i class="fas" [class]="icon()"></i></div>
     <div class="view-name">{{ name() }}</div>
     <div class="view-status">{{ guest().status }}</div>
+
+    <div class="qr-display">
+      @if (qrDataUrl(); as qr) {
+        <img [src]="qr" [alt]="'QR code de ' + name()" width="220" height="220" />
+      } @else if (qrError(); as error) {
+        <p style="color: var(--error); font-size: 0.9rem">
+          <i class="fas fa-exclamation-circle"></i> QR code indisponible ({{ error }})
+        </p>
+      } @else {
+        <p style="color: var(--text-light); font-size: 0.9rem">
+          <i class="fas fa-spinner fa-spin"></i> Génération du QR code…
+        </p>
+      }
+      <p style="color: var(--text-light); font-size: 0.8rem; margin: 0">
+        À imprimer sur le billet : il ouvre cette fiche au scan.
+      </p>
+    </div>
+
     <div class="view-details">
+      <div class="view-detail-item">
+        <div class="view-detail-label">Nom</div>
+        <div class="view-detail-value">{{ guest().nom.toUpperCase() }}</div>
+      </div>
+      @if (firstName(); as prenom) {
+        <div class="view-detail-item">
+          <div class="view-detail-label">Prénom</div>
+          <div class="view-detail-value">{{ prenom }}</div>
+        </div>
+      }
       <div class="view-detail-item">
         <div class="view-detail-label">Table</div>
         <div class="view-detail-value">
@@ -18,7 +47,7 @@
       </div>
       <div class="view-detail-item">
         <div class="view-detail-label">Lien</div>
-        <div class="view-detail-value">{{ guest().link }}</div>
+        <div class="view-detail-value">{{ link() }}</div>
       </div>
       <div class="view-detail-item">
         <div class="view-detail-label">Places</div>
@@ -43,5 +72,16 @@
 
   <ng-container modalFooter>
     <button type="button" class="btn-cancel" (click)="closed.emit()">Fermer</button>
+    <button type="button" class="btn-cancel" [disabled]="!qrDataUrl()" (click)="download()">
+      <i class="fas fa-download"></i> Télécharger le QR
+    </button>
+    <button
+      type="button"
+      [class]="guest().present ? 'btn-cancel' : 'btn-save'"
+      (click)="presenceChanged.emit(!guest().present)"
+    >
+      <i class="fas" [class]="guest().present ? 'fa-rotate-left' : 'fa-check'"></i>
+      {{ guest().present ? 'Remettre en attente' : 'Confirmer la présence' }}
+    </button>
   </ng-container>
 </app-modal>

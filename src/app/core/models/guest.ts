@@ -1,8 +1,23 @@
 /** Civil status of an invitation holder. A `Couple` occupies two seats. */
 export type GuestStatus = 'Couple' | 'Monsieur' | 'Madame' | 'Mademoiselle';
 
-/** How the guest relates to the couple getting married. */
-export type GuestLink = 'Parent' | 'Ami' | 'Collègue' | 'Connaissance' | 'Église';
+/**
+ * How the guest relates to the couple getting married.
+ *
+ * `Ami / Connaissance` is one circle rather than two: the raffle allots its
+ * prizes to that circle as a whole, and nobody could tell the two apart when
+ * filling the form.
+ */
+export type GuestLink = 'Parent' | 'Église' | 'Ami / Connaissance' | 'Collègue';
+
+/**
+ * Which side of the raffle the guest is drawn from.
+ *
+ * Kept apart from the link rather than folded into it (`Parent (Homme)`), so
+ * the prize quotas can be expressed as a pair and the two halves stay
+ * queryable on their own.
+ */
+export type Gender = 'Homme' | 'Femme';
 
 export type YesNo = 'Oui' | 'Non';
 
@@ -13,6 +28,7 @@ export interface Guest {
   prenom: string | null;
   table: string;
   link: GuestLink;
+  gender: Gender;
   isChristian: YesNo | null;
   phone: string | null;
   present: boolean;
@@ -37,6 +53,11 @@ export function displayName(guest: Guest): string {
   return guest.status === 'Couple'
     ? guest.nom.toUpperCase()
     : `${guest.nom.toUpperCase()} ${guest.prenom ?? ''}`.trim();
+}
+
+/** The link as the form offers it, and as every screen shows it back. */
+export function linkLabel(guest: Pick<Guest, 'link' | 'gender'>): string {
+  return `${guest.link} (${guest.gender})`;
 }
 
 export function seatsFor(guest: Pick<Guest, 'status'>): number {

@@ -58,11 +58,11 @@
       <button
         type="button"
         class="btn btn-secondary btn-icon"
-        (click)="open('table')"
-        title="Ajouter une table"
-        aria-label="Ajouter une table"
+        (click)="open('tables')"
+        title="Tables"
+        aria-label="Tables"
       >
-        <i class="fas fa-plus"></i>
+        <i class="fas fa-chair"></i>
       </button>
       <a
         class="btn btn-secondary btn-icon"
@@ -125,13 +125,19 @@
               </span>
             </td>
             <td>
-              <span class="guest-name">{{ name(guest) }}</span>
+              <button
+                type="button"
+                class="guest-name guest-name-link"
+                (click)="open('view', guest)"
+              >
+                {{ name(guest) }}
+              </button>
             </td>
             <td>
               <span class="table-badge"><i class="fas fa-book-open"></i> {{ guest.table }}</span>
             </td>
             <td>
-              <span class="guest-link" [class]="linkClass(guest)">{{ guest.link }}</span>
+              <span class="guest-link" [class]="linkClass(guest)">{{ link(guest) }}</span>
             </td>
             <td>
               @if (guest.phone) {
@@ -242,11 +248,24 @@
   @case ('guest') {
     <app-guest-form-dialog [guest]="selected()" (saved)="saveGuest($event)" (closed)="close()" />
   }
-  @case ('table') {
-    <app-table-form-dialog (saved)="saveTable($event)" (closed)="close()" />
+  @case ('tables') {
+    <app-tables-dialog
+      (saved)="saveTable($event)"
+      (deleted)="deleteTable($event)"
+      (closed)="close()"
+    />
   }
   @case ('view') {
-    <app-guest-view-dialog [guest]="selected()!" (closed)="close()" />
+    <!-- The guest can vanish under the dialog: another device may delete them
+         while it is open. -->
+    @if (selected(); as guest) {
+      <app-guest-view-dialog
+        [guest]="guest"
+        [arrival]="arrival()"
+        (presenceChanged)="togglePresence(guest, $event)"
+        (closed)="close()"
+      />
+    }
   }
   @case ('confirm') {
     <app-confirm-dialog

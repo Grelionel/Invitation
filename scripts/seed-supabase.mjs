@@ -75,6 +75,9 @@ const rows = guests.map((guest) => ({
   prenom: guest.prenom ?? null,
   wedding_table_id: idByName.get(guest.table),
   link: guest.link,
+  // Le genre n'existait pas dans les anciens exports ; « Homme » sert de
+  // point de départ, à relire ensuite dans l'application.
+  gender: guest.gender ?? 'Homme',
   is_christian: guest.isChristian ?? null,
   phone: guest.phone ?? null,
   checked_in_at: guest.present ? now : null,

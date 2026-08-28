@@ -11,7 +11,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 
 import { GuestStore } from '../../../core/services/guest-store.service';
 import type { Guest, GuestDraft } from '../../../core/models/guest';
-import { GUEST_LINKS, GUEST_STATUSES } from '../../../core/models/wedding.constants';
+import { GUEST_LINK_OPTIONS, GUEST_STATUSES } from '../../../core/models/wedding.constants';
 import { Modal } from '../../../shared/components/modal/modal';
 
 @Component({
@@ -30,7 +30,8 @@ export class GuestFormDialog {
   private readonly fb = inject(FormBuilder);
 
   protected readonly statuses = GUEST_STATUSES;
-  protected readonly links = GUEST_LINKS;
+  /** Link and gender are picked together: eight entries, one question. */
+  protected readonly linkOptions = GUEST_LINK_OPTIONS;
 
   protected readonly isEdit = computed(() => this.guest() !== null);
 
@@ -47,6 +48,7 @@ export class GuestFormDialog {
     nom: ['', Validators.required],
     prenom: [''],
     table: ['', Validators.required],
+    // Bound to `Parent|Homme`; the two halves are split apart on submit.
     link: ['', Validators.required],
     isChristian: ['', Validators.required],
     phone: [''],
@@ -62,7 +64,7 @@ export class GuestFormDialog {
           nom: guest.nom,
           prenom: guest.prenom ?? '',
           table: guest.table,
-          link: guest.link,
+          link: `${guest.link}|${guest.gender}`,
           isChristian: guest.isChristian ?? '',
           phone: guest.phone ?? '',
         });
@@ -76,12 +78,14 @@ export class GuestFormDialog {
       return;
     }
     const value = this.form.getRawValue();
+    const [link, gender] = value.link.split('|');
     this.saved.emit({
       status: value.status as GuestDraft['status'],
       nom: value.nom.trim(),
       prenom: value.prenom.trim() || null,
       table: value.table,
-      link: value.link as GuestDraft['link'],
+      link: link as GuestDraft['link'],
+      gender: gender as GuestDraft['gender'],
       isChristian: value.isChristian as GuestDraft['isChristian'],
       phone: value.phone.trim() || null,
     });

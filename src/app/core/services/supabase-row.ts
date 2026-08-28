@@ -1,4 +1,4 @@
-import type { Guest, GuestDraft, GuestLink, GuestStatus, YesNo } from '../models/guest';
+import type { Gender, Guest, GuestDraft, GuestLink, GuestStatus, YesNo } from '../models/guest';
 import type { WeddingTable } from '../models/wedding-table';
 
 /**
@@ -18,6 +18,7 @@ export interface GuestRow {
   prenom: string | null;
   wedding_table_id: number;
   link: string;
+  gender: string;
   is_christian: string | null;
   phone: string | null;
   seats: number;
@@ -32,6 +33,7 @@ export interface GuestWrite {
   prenom: string | null;
   wedding_table_id: number;
   link: string;
+  gender: string;
   is_christian: string | null;
   phone: string | null;
 }
@@ -61,6 +63,7 @@ export function toGuest(row: GuestRow, tablesById: ReadonlyMap<number, WeddingTa
     prenom: row.prenom,
     table: tablesById.get(row.wedding_table_id)?.name ?? '',
     link: row.link as GuestLink,
+    gender: row.gender as Gender,
     isChristian: (row.is_christian as YesNo | null) ?? null,
     phone: row.phone ?? null,
     present: row.present,
@@ -80,6 +83,7 @@ export function toRow(
     prenom: draft.prenom,
     wedding_table_id: table.id,
     link: draft.link,
+    gender: draft.gender,
     is_christian: draft.isChristian,
     phone: draft.phone,
   };
