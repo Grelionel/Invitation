@@ -8,15 +8,28 @@
  * n'ouvre que ce que vos règles d'accès autorisent (voir `supabase/schema.sql`).
  * Ne mettez jamais la clé « service_role » ici.
  *
- * Laissez les deux champs vides pour travailler hors ligne avec le serveur
- * local (`npm run serve`).
+ * Laissez les deux champs vides pour travailler sans base : chaque navigateur
+ * garde alors sa propre liste, sans rien partager.
  */
 export const environment = {
-  supabaseUrl: '',
-  supabaseAnonKey: '',
+  supabaseUrl: 'https://zagzjgrlomjphlcakafi.supabase.co',
+  supabaseAnonKey:
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InphZ3pqZ3Jsb21qcGhsY2FrYWZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5MDc4NzgsImV4cCI6MjEwMzQ4Mzg3OH0.A3yaGJEDttwrr0WOA8tE2INNT3wo6h1NzN4jp9BGU94',
 };
 
 /** L'application n'utilise Supabase que si les deux valeurs sont renseignées. */
 export function isSupabaseConfigured(): boolean {
   return environment.supabaseUrl.length > 0 && environment.supabaseAnonKey.length > 0;
+}
+
+/**
+ * L'URL de l'API, en tolérant la référence seule du projet.
+ *
+ * Le tableau de bord affiche les deux — « Project ID » et « Project URL » — et
+ * `createClient` n'accepte que la seconde. Recopier la mauvaise donnait une
+ * connexion qui échouait sans dire pourquoi.
+ */
+export function supabaseUrl(): string {
+  const value = environment.supabaseUrl.trim().replace(/\/+$/, '');
+  return value.startsWith('http') ? value : `https://${value}.supabase.co`;
 }
