@@ -11,7 +11,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 
 import { GuestStore } from '../../../core/services/guest-store.service';
 import type { Guest, GuestDraft } from '../../../core/models/guest';
-import { GUEST_LINKS, GUEST_STATUSES, MAX_PER_TABLE } from '../../../core/models/wedding.constants';
+import { GUEST_LINKS, GUEST_STATUSES } from '../../../core/models/wedding.constants';
 import { Modal } from '../../../shared/components/modal/modal';
 
 @Component({
@@ -31,15 +31,14 @@ export class GuestFormDialog {
 
   protected readonly statuses = GUEST_STATUSES;
   protected readonly links = GUEST_LINKS;
-  protected readonly maxPerTable = MAX_PER_TABLE;
 
   protected readonly isEdit = computed(() => this.guest() !== null);
 
   /** Tables carry their seat count, and full ones are not selectable. */
   protected readonly tableOptions = computed(() =>
-    this.store.tables().map((name) => {
-      const seats = this.store.seatsAt(name);
-      return { name, seats, full: seats >= MAX_PER_TABLE };
+    this.store.tables().map((table) => {
+      const seats = this.store.seatsAt(table.name);
+      return { name: table.name, seats, limit: table.seatLimit, full: seats >= table.seatLimit };
     }),
   );
 

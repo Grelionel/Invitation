@@ -2,6 +2,7 @@ import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core'
 
 import type { Guest, GuestDraft } from '../models/guest';
 import { seatsFor } from '../models/guest';
+import type { WeddingTable } from '../models/wedding-table';
 import { MAX_PER_TABLE, MAX_TABLES, TABLE_NAMES } from '../models/wedding.constants';
 import { GUESTS_BACKEND } from './guests-backend';
 import { LocalStoreService } from './local-store.service';
@@ -24,10 +25,14 @@ export interface WeddingStats {
 /**
  * Single source of truth for guests and tables.
  *
- * Writes go to IndexedDB first (so nothing is lost if the network is down) and
- * are then pushed to Supabase, which is what lets the laptop, the hall screen
- * and a phone see the same list — a browser's own storage never leaves its
- * device.
+ * Reads are served from IndexedDB first, so the list paints before the network
+ * answers and survives a power cut. Writes go to Supabase, which is what lets
+ * the laptop, the hall screen and a phone see the same list — a browser's own
+ * storage never leaves its device.
+ *
+ * Every mutation touches a single row. Postgres mints the identifiers and owns
+ * the invariants (a full table, a couple counting for two covers), so the store
+ * takes what the database returns rather than deciding in its place.
  */
 @Injectable({ providedIn: 'root' })
 export class GuestStore {
@@ -36,11 +41,13 @@ export class GuestStore {
   private readonly toast = inject(ToastService);
 
   private readonly guestList = signal<readonly Guest[]>([]);
-  private readonly tableList = signal<readonly string[]>([]);
+  private readonly tableList = signal<readonly WeddingTable[]>([]);
   private initialized: Promise<void> | null = null;
 
   readonly guests = this.guestList.asReadonly();
   readonly tables = this.tableList.asReadonly();
+
+  readonly tableNames = computed(() => this.tableList().map((table) => table.name));
 
   readonly sortedGuests = computed(() =>
     [...this.guestList()].sort((a, b) =>
@@ -54,7 +61,9 @@ export class GuestStore {
     const guests = this.guestList();
     const tables = this.tableList();
     const seats = guests.reduce((total, guest) => total + seatsFor(guest), 0);
-    const capacity = tables.length * MAX_PER_TABLE;
+    // Capacity is the sum of what each table seats, not a flat count: the
+    // database lets tables differ.
+    const capacity = tables.reduce((total, table) => total + table.seatLimit, 0);
     return {
       guests: guests.length,
       tables: tables.length,
@@ -65,7 +74,7 @@ export class GuestStore {
     };
   });
 
-  /** Seats booked per table, used both for warnings and for the table picker. */
+  /** Seats booked per table name, used both for warnings and for the picker. */
   readonly occupancy = computed<ReadonlyMap<string, number>>(() => {
     const counts = new Map<string, number>();
     for (const guest of this.guestList()) {
@@ -74,12 +83,16 @@ export class GuestStore {
     return counts;
   });
 
-  readonly overCapacityTables = computed(() =>
-    [...this.occupancy().entries()].filter(([, seats]) => seats > MAX_PER_TABLE),
-  );
+  /** Tables booked past their own limit, carrying the limit they exceeded. */
+  readonly overCapacityTables = computed(() => {
+    const booked = this.occupancy();
+    return this.tableList()
+      .map((table) => ({ table, seats: booked.get(table.name) ?? 0 }))
+      .filter(({ table, seats }) => seats > table.seatLimit);
+  });
 
-  seatsAt(table: string): number {
-    return this.occupancy().get(table) ?? 0;
+  seatsAt(name: string): number {
+    return this.occupancy().get(name) ?? 0;
   }
 
   private watchers = 0;
@@ -137,14 +150,14 @@ export class GuestStore {
   private async loadOnce(): Promise<void> {
     try {
       const [tables, guests] = await Promise.all([
-        this.local.read<readonly string[] | null>(TABLES_KEY, null),
+        this.local.read<readonly WeddingTable[] | null>(TABLES_KEY, null),
         this.local.read<readonly Guest[] | null>(GUESTS_KEY, null),
       ]);
-      this.tableList.set(tables ?? [...TABLE_NAMES]);
+      this.tableList.set(tables ?? seedTables());
       this.guestList.set(guests ?? []);
       if (!tables) await this.local.write(TABLES_KEY, this.tableList());
     } catch (error) {
-      this.tableList.set([...TABLE_NAMES]);
+      this.tableList.set(seedTables());
       this.guestList.set([]);
       this.toast.error(`Erreur de chargement: ${message(error)}`);
     }
@@ -154,7 +167,7 @@ export class GuestStore {
   }
 
   /**
-   * Pulls the shared list into the app, and does nothing when it already
+   * Pulls the shared data into the app, and does nothing when it already
    * matches.
    *
    * `background` marks the calls driven by the realtime subscription: a change
@@ -166,10 +179,15 @@ export class GuestStore {
   private async pull(background: boolean): Promise<void> {
     if (!this.backend) return;
     try {
-      const shared = await this.backend.fetchAll();
-      if (JSON.stringify(shared) === JSON.stringify(this.guestList())) return;
-      this.guestList.set(shared);
-      await this.local.write(GUESTS_KEY, shared);
+      const { tables, guests } = await this.backend.fetchAll();
+      const changed =
+        JSON.stringify(guests) !== JSON.stringify(this.guestList()) ||
+        JSON.stringify(tables) !== JSON.stringify(this.tableList());
+      if (!changed) return;
+
+      this.guestList.set(guests);
+      this.tableList.set(tables);
+      await this.cache();
       if (background) this.toast.show('Liste mise à jour', 'info');
     } catch (error) {
       if (!background) {
@@ -182,7 +200,7 @@ export class GuestStore {
   private async reloadLocal(): Promise<void> {
     try {
       const [tables, guests] = await Promise.all([
-        this.local.read<readonly string[] | null>(TABLES_KEY, null),
+        this.local.read<readonly WeddingTable[] | null>(TABLES_KEY, null),
         this.local.read<readonly Guest[] | null>(GUESTS_KEY, null),
       ]);
       if (tables) this.tableList.set(tables);
@@ -192,89 +210,99 @@ export class GuestStore {
     }
   }
 
+  /**
+   * @throws when the database refuses the guest — a table already full, most
+   *   often. The list is left untouched then, so the screen keeps telling the
+   *   truth.
+   */
   async addGuest(draft: GuestDraft): Promise<Guest> {
-    const guests = this.guestList();
-    const id = guests.length > 0 ? Math.max(...guests.map((g) => g.id)) + 1 : 1;
-    const guest: Guest = { ...draft, id, present: false };
-    this.guestList.set([...guests, guest]);
-    await this.persist();
+    const guest = this.backend ? await this.backend.addGuest(draft) : this.mintLocally(draft);
+    this.guestList.set([...this.guestList(), guest]);
+    await this.cache();
     return guest;
   }
 
+  /** @throws when the database refuses the change. */
   async updateGuest(id: number, draft: GuestDraft): Promise<void> {
+    const stored = this.backend ? await this.backend.updateGuest(id, draft) : null;
     this.guestList.update((guests) =>
-      guests.map((guest) => (guest.id === id ? { ...guest, ...draft } : guest)),
+      guests.map((guest) => (guest.id === id ? (stored ?? { ...guest, ...draft }) : guest)),
     );
-    await this.persist();
+    await this.cache();
   }
 
+  /** @throws when the database refuses the deletion. */
   async deleteGuest(id: number): Promise<void> {
+    await this.backend?.deleteGuest(id);
     this.guestList.update((guests) => guests.filter((guest) => guest.id !== id));
-    await this.persist();
+    await this.cache();
   }
 
   /**
    * Marks attendance from the list.
    *
-   * This one updates a single row rather than resending everything, so a
-   * device pointing arrivals cannot clobber an edit another one is making.
+   * This one writes a single column rather than the whole guest, so a device
+   * recording arrivals cannot clobber an edit another one is making.
+   *
+   * @throws when the change could not be shared.
    */
   async setPresence(id: number, present: boolean): Promise<void> {
-    const updated = this.guestList().map((guest) =>
-      guest.id === id ? { ...guest, present } : guest,
+    const stored = this.backend ? await this.backend.setPresence(id, present) : null;
+    this.guestList.update((guests) =>
+      guests.map((guest) => (guest.id === id ? (stored ?? { ...guest, present }) : guest)),
     );
-    this.guestList.set(updated);
-
-    try {
-      await this.local.write(GUESTS_KEY, updated);
-      this.broadcast();
-    } catch (error) {
-      this.toast.error(`Erreur de sauvegarde: ${message(error)}`);
-    }
-
-    if (!this.backend) return;
-    try {
-      await this.backend.setPresence(id, present);
-    } catch (error) {
-      this.toast.error(
-        `⚠️ Pointage non partagé (${message(error)}). Les autres écrans l'ignorent.`,
-      );
-    }
+    await this.cache();
   }
 
   /** @returns an error message, or `null` when the table was added. */
-  async addTable(name: string): Promise<string | null> {
+  async addTable(name: string, seatLimit = MAX_PER_TABLE): Promise<string | null> {
     const trimmed = name.trim();
     if (!trimmed) return 'Veuillez saisir un nom de table';
     // Duplicates are checked first: the seed already fills all 30 slots, so the
     // limit would otherwise mask the more useful "already exists" message.
-    if (this.tableList().includes(trimmed)) return 'Cette table existe déjà';
+    if (this.tableNames().includes(trimmed)) return 'Cette table existe déjà';
     if (this.tableList().length >= MAX_TABLES) return `Maximum ${MAX_TABLES} tables atteint`;
 
-    this.tableList.update((tables) => [...tables, trimmed]);
-    await this.persist();
-    return null;
+    try {
+      const table = this.backend
+        ? await this.backend.addTable(trimmed, seatLimit)
+        : { id: nextId(this.tableList()), name: trimmed, seatLimit };
+      this.tableList.set([...this.tableList(), table]);
+      await this.cache();
+      return null;
+    } catch (error) {
+      return message(error);
+    }
   }
 
-  /** Local write first, then a best-effort push so the other screens see it. */
-  private async persist(): Promise<void> {
+  /** Identifiers are the database's job; without one, the app mints its own. */
+  private mintLocally(draft: GuestDraft): Guest {
+    return { ...draft, id: nextId(this.guestList()), present: false };
+  }
+
+  /** Refreshes the offline copy and tells the other windows of this browser. */
+  private async cache(): Promise<void> {
     try {
       await this.local.write(GUESTS_KEY, this.guestList());
       await this.local.write(TABLES_KEY, this.tableList());
       this.broadcast();
     } catch (error) {
-      this.toast.error(`Erreur de sauvegarde: ${message(error)}`);
-    }
-
-    if (!this.backend) return;
-    try {
-      await this.backend.replaceAll(this.guestList());
-    } catch (error) {
-      this.toast.error(
-        `⚠️ Non envoyé à la base (${message(error)}). Les autres appareils ne verront pas ces données.`,
-      );
+      this.toast.error(`Erreur de sauvegarde locale: ${message(error)}`);
     }
   }
+}
+
+/** The 30 Bible-verse tables, for a device running without a database. */
+function seedTables(): WeddingTable[] {
+  return TABLE_NAMES.map((name, index) => ({
+    id: index + 1,
+    name,
+    seatLimit: MAX_PER_TABLE,
+  }));
+}
+
+function nextId(items: readonly { id: number }[]): number {
+  return items.length > 0 ? Math.max(...items.map((item) => item.id)) + 1 : 1;
 }
 
 function message(error: unknown): string {

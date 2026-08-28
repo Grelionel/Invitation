@@ -25,8 +25,8 @@ import { Modal } from '../../../shared/components/modal/modal';
           placeholder="Ex: Jean 3:16"
         />
         <p style="color: var(--text-light); font-size: 0.8rem; margin-top: 8px">
-          <i class="fas fa-info-circle"></i> Maximum {{ maxTables }} tables au total. Chaque table
-          accueille jusqu'à {{ maxPerTable }} personnes.
+          <i class="fas fa-info-circle"></i> Maximum {{ maxTables }} tables au total. Une nouvelle
+          table accueille {{ maxPerTable }} personnes ; ajustez sa capacité dans la base si besoin.
         </p>
       </div>
 
