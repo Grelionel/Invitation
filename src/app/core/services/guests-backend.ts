@@ -3,11 +3,10 @@ import { InjectionToken } from '@angular/core';
 import type { Guest } from '../models/guest';
 
 /**
- * What the guest list needs from whatever is storing it.
+ * What the guest list needs from the database shared by every device.
  *
- * Two implementations exist: Supabase for the deployed site, and the local
- * Node server for the offline fallback at the venue. The store talks only to
- * this interface, so neither one leaks into the rest of the app.
+ * Supabase is the one implementation. The store talks only to this interface,
+ * so the client library never leaks into the rest of the app.
  */
 export interface GuestsBackend {
   fetchAll(): Promise<Guest[]>;
@@ -18,8 +17,8 @@ export interface GuestsBackend {
   /**
    * Marks one guest present or waiting.
    *
-   * Separate from `replaceAll` on purpose: the door phone must not overwrite
-   * an edit the laptop is making at the same moment.
+   * Separate from `replaceAll` on purpose: a device pointing arrivals must not
+   * overwrite an edit another one is making at the same moment.
    */
   setPresence(id: number, present: boolean): Promise<Guest>;
 
@@ -30,4 +29,5 @@ export interface GuestsBackend {
   watch(onChange: () => void): () => void;
 }
 
-export const GUESTS_BACKEND = new InjectionToken<GuestsBackend>('GUESTS_BACKEND');
+/** `null` when Supabase is not configured: the app then stays device-local. */
+export const GUESTS_BACKEND = new InjectionToken<GuestsBackend | null>('GUESTS_BACKEND');

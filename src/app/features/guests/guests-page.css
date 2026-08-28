@@ -5,11 +5,31 @@
   align-items: center;
 }
 
-.btn-warning {
-  background: var(--warning);
-  color: white;
-}
-
 a.btn {
   text-decoration: none;
+}
+
+/* Icon-only action buttons: `.btn` is sized for a label, so the horizontal
+   padding and the icon/label gap both have to go for the square format. */
+.btn-icon {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  gap: 0;
+  justify-content: center;
+  font-size: 1.15rem;
+}
+
+/* Attendance is toggled from the list, so the badge is a button — it keeps the
+   `.present-badge` look and only adds the affordances. */
+.present-toggle {
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.3s ease;
+}
+
+.present-toggle:hover {
+  filter: brightness(1.25);
+  transform: translateY(-1px);
 }

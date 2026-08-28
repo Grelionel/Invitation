@@ -51,7 +51,7 @@ export class LotteryPage {
 
   constructor() {
     const destroyRef = inject(DestroyRef);
-    void this.store.load().then(() => this.store.syncFromServer(true));
+    void this.store.load();
     // Someone arriving late must be able to win.
     this.store.watch(destroyRef);
     destroyRef.onDestroy(() => this.clearTimer());

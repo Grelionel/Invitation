@@ -12,15 +12,15 @@ import { type Guest, displayName, seatsFor, statusIcon } from '../../core/models
 import { GuestStore } from '../../core/services/guest-store.service';
 import { SlideshowService } from './slideshow.service';
 
-/** How long a freshly checked-in guest stays on screen before the photos return. */
+/** How long a freshly arrived guest stays on screen before the photos return. */
 const GUEST_VISIBLE_MS = 10_000;
 const SLIDE_INTERVAL_MS = 5000;
 
 /**
  * The big screen in the reception hall.
  *
- * It loops through the couple's photos and, whenever the door marks someone
- * present, interrupts itself to welcome that guest by name.
+ * It loops through the couple's photos and, whenever someone is marked present
+ * in the guest list, interrupts itself to welcome that guest by name.
  */
 @Component({
   selector: 'app-display-page',
@@ -56,9 +56,9 @@ export class DisplayPage {
     const destroyRef = inject(DestroyRef);
     void this.slideshow.start(SLIDE_INTERVAL_MS);
 
-    // Announce whoever the door checks in. `effect` reacts to the store, so
-    // this screen no longer runs a timer of its own.
-    void this.store.load().then(() => this.store.syncFromServer(true));
+    // Announce whoever is checked in on the guest list. `effect` reacts to the
+    // store, so this screen runs no timer of its own.
+    void this.store.load();
     this.store.watch(destroyRef);
     effect(() => this.onGuestsChanged(this.store.guests()));
 
@@ -71,7 +71,7 @@ export class DisplayPage {
   private onGuestsChanged(guests: readonly Guest[]): void {
     const present = guests.filter((guest) => guest.present);
 
-    // The first poll only records who was already present, otherwise opening
+    // The first read only records who was already present, otherwise opening
     // the screen mid-evening would replay every earlier arrival.
     if (!this.primed) {
       this.announced = new Set(present.map((guest) => guest.id));

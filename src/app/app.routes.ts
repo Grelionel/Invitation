@@ -7,11 +7,6 @@ export const routes: Routes = [
     loadComponent: () => import('./features/guests/guests-page').then((m) => m.GuestsPage),
   },
   {
-    path: 'scan',
-    title: 'Validation Présence - Mariage',
-    loadComponent: () => import('./features/scan/scan-page').then((m) => m.ScanPage),
-  },
-  {
     path: 'lottery',
     title: 'Tirage au Sort - Mariage',
     loadComponent: () => import('./features/lottery/lottery-page').then((m) => m.LotteryPage),
