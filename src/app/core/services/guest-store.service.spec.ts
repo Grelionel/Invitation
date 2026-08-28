@@ -66,6 +66,13 @@ class FakeBackend {
     return table;
   });
 
+  readonly deleteTable = vi.fn(async (id: number) => {
+    if (this.guests.some((g) => g.table === this.tables.find((t) => t.id === id)?.name)) {
+      throw new Error('update or delete on table violates foreign key constraint');
+    }
+    this.tables = this.tables.filter((t) => t.id !== id);
+  });
+
   readonly stop = vi.fn();
   readonly watch = vi.fn(() => this.stop);
 
@@ -93,7 +100,8 @@ function draft(overrides: Partial<GuestDraft> = {}): GuestDraft {
     nom: 'Dintengou',
     prenom: 'Epiphanie',
     table: TABLE_NAMES[0],
-    link: 'Ami',
+    link: 'Ami / Connaissance',
+    gender: 'Homme',
     isChristian: 'Non',
     phone: null,
     ...overrides,
@@ -210,6 +218,26 @@ describe('GuestStore with Supabase configured', () => {
     await expect(store.setPresence(guest.id, true)).rejects.toThrow('Failed to fetch');
     // The caller reports it; the list still shows the database's last word.
     expect(store.guests()[0].present).toBe(false);
+  });
+
+  it('removes an empty table', async () => {
+    const table = store.tables()[0];
+
+    expect(await store.deleteTable(table.id)).toBeNull();
+    expect(store.tableNames()).not.toContain(table.name);
+    expect(backend.deleteTable).toHaveBeenCalledWith(table.id);
+  });
+
+  it('refuses to remove a table someone is seated at, without asking the database', async () => {
+    const table = store.tables()[0];
+    await store.addGuest(draft({ table: table.name }));
+
+    const error = await store.deleteTable(table.id);
+
+    // The foreign key would refuse it too, but with a message no host can read.
+    expect(error).toContain(table.name);
+    expect(backend.deleteTable).not.toHaveBeenCalled();
+    expect(store.tableNames()).toContain(table.name);
   });
 
   it('removes a guest from the list and from the database', async () => {

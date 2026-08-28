@@ -119,6 +119,13 @@ export class SupabaseGuestsBackend implements GuestsBackend {
     return table;
   }
 
+  async deleteTable(id: number): Promise<void> {
+    const client = await this.client();
+    const { error } = await client.from(TABLES).delete().eq('id', id);
+    if (error) throw described(error.message);
+    this.remember([...this.byId.values()].filter((table) => table.id !== id));
+  }
+
   watch(onChange: () => void): () => void {
     let stop: (() => void) | null = null;
     let cancelled = false;

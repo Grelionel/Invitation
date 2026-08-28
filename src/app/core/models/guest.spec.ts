@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { type Guest, displayName, seatsFor, statusIcon } from './guest';
+import { type Guest, displayName, linkLabel, seatsFor, statusIcon } from './guest';
 
 function guest(overrides: Partial<Guest> = {}): Guest {
   return {
@@ -9,7 +9,8 @@ function guest(overrides: Partial<Guest> = {}): Guest {
     nom: 'Balondzit',
     prenom: 'Dan',
     table: 'Jean 3:16',
-    link: 'Ami',
+    link: 'Ami / Connaissance',
+    gender: 'Homme',
     isChristian: 'Non',
     phone: null,
     present: false,
@@ -30,6 +31,13 @@ describe('displayName', () => {
 
   it('does not leave a trailing space when the first name is missing', () => {
     expect(displayName(guest({ prenom: null }))).toBe('BALONDZIT');
+  });
+});
+
+describe('linkLabel', () => {
+  it('reads back the entry the form offered', () => {
+    expect(linkLabel(guest())).toBe('Ami / Connaissance (Homme)');
+    expect(linkLabel(guest({ link: 'Parent', gender: 'Femme' }))).toBe('Parent (Femme)');
   });
 });
 

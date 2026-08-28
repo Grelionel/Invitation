@@ -9,3 +9,245 @@
   margin-top: 16px;
   color: var(--text-light);
 }
+
+.draw-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+/*
+ * The wrapped gift.
+ *
+ * It is drawn rather than drawn on: three boxes and a ribbon, so it scales to
+ * the hall screen without a sprite to load and keeps the room's colours.
+ */
+.gift-box {
+  position: relative;
+  width: 160px;
+  height: 150px;
+}
+
+.gift-body {
+  position: absolute;
+  bottom: 0;
+  left: 10px;
+  width: 140px;
+  height: 105px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-light));
+  box-shadow: 0 12px 30px rgba(233, 69, 96, 0.35);
+}
+
+.gift-lid {
+  position: absolute;
+  bottom: 100px;
+  left: 0;
+  width: 160px;
+  height: 34px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--gold), var(--gold-light));
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  transform-origin: left bottom;
+}
+
+/* The ribbon crosses both halves, which is what makes them read as one box. */
+.gift-ribbon {
+  position: absolute;
+  bottom: 0;
+  left: 68px;
+  width: 24px;
+  height: 134px;
+  background: linear-gradient(180deg, var(--gold-light), var(--gold));
+  border-radius: 4px;
+}
+
+.gift-box.shaking {
+  animation: gift-shake 0.7s ease-in-out infinite;
+}
+
+@keyframes gift-shake {
+  0%,
+  100% {
+    transform: rotate(0deg) translateY(0);
+  }
+  25% {
+    transform: rotate(-5deg) translateY(-6px);
+  }
+  75% {
+    transform: rotate(5deg) translateY(-6px);
+  }
+}
+
+/* The burst: the lid flies off, the body swells and fades, sparks scatter. */
+.gift-box.bursting .gift-lid {
+  animation: lid-off 0.9s cubic-bezier(0.3, -0.4, 0.6, 1.4) forwards;
+}
+
+.gift-box.bursting .gift-body,
+.gift-box.bursting .gift-ribbon {
+  animation: box-blow 0.9s ease-out forwards;
+}
+
+@keyframes lid-off {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(90px, -260px) rotate(150deg);
+    opacity: 0;
+  }
+}
+
+@keyframes box-blow {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  45% {
+    transform: scale(1.35);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+.spark {
+  position: absolute;
+  top: 60px;
+  left: 74px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--gold-light);
+  /* Each spark carries its own angle, so one keyframe serves all eighteen. */
+  transform: rotate(var(--angle)) translateX(0);
+  animation: spark-out 0.9s ease-out forwards;
+}
+
+.spark:nth-child(even) {
+  background: var(--accent-light);
+}
+
+@keyframes spark-out {
+  0% {
+    transform: rotate(var(--angle)) translateX(0) scale(0.4);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(var(--angle)) translateX(320px) scale(1.1);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gift-box.shaking,
+  .gift-box.bursting .gift-lid,
+  .gift-box.bursting .gift-body,
+  .gift-box.bursting .gift-ribbon,
+  .spark {
+    animation-duration: 0.01s;
+  }
+}
+
+.winner-category {
+  margin-top: 18px;
+  color: var(--gold);
+  font-size: 1.2rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+/* ===== The board of six circles ===== */
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.category-card {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 20px;
+  text-align: center;
+}
+
+.category-done {
+  opacity: 0.5;
+}
+
+.category-name {
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+.category-count {
+  margin-top: 8px;
+  color: var(--text-light);
+}
+
+.category-left {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--gold);
+}
+
+.category-pool {
+  color: var(--text-light);
+  font-size: 0.85rem;
+  margin-top: 4px;
+}
+
+.category-draw {
+  margin-top: 14px;
+  cursor: pointer;
+}
+
+.category-draw:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ===== The winners already announced ===== */
+.winners-board {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 24px;
+  margin-top: 24px;
+}
+
+.winners-board h2 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 16px;
+}
+
+.winners-board ol {
+  margin: 0 0 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.winner-name {
+  font-weight: 700;
+  margin-right: 10px;
+}
+
+.winner-meta {
+  color: var(--text-light);
+  font-size: 0.9rem;
+}

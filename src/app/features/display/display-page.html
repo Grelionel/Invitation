@@ -1,6 +1,7 @@
 <div class="display-page">
   @if (welcomed(); as guest) {
-    <div class="boarding-card">
+    <!-- No photo column while a guest is being welcomed: the card is theirs. -->
+    <div class="boarding-card welcoming">
       <div class="left-section">
         <div class="top-bar">
           <h1>Matthieu 6:10 « Que ton règne vienne, que ta volonté soit faite [...] »</h1>
@@ -21,14 +22,14 @@
             <div class="welcome-bienvenu">Bienvenue</div>
             <div class="show-guest-status">{{ guest.status }}</div>
             <div class="show-guest-name">{{ name() }}</div>
+            <div class="show-guest-table">
+              <span class="show-guest-table-label">Table</span>
+              <span class="show-guest-table-value">{{ guest.table }}</span>
+            </div>
             <div class="show-guest-details">
               <div class="show-guest-detail">
-                <span class="show-guest-detail-label">Table</span>
-                <span class="show-guest-detail-value">{{ guest.table }}</span>
-              </div>
-              <div class="show-guest-detail">
                 <span class="show-guest-detail-label">Lien</span>
-                <span class="show-guest-detail-value">{{ guest.link }}</span>
+                <span class="show-guest-detail-value">{{ link() }}</span>
               </div>
               <div class="show-guest-detail">
                 <span class="show-guest-detail-label">Places</span>
@@ -81,4 +82,19 @@
       </div>
     </div>
   }
+
+  <!-- The photos are added from the machine that shows them. The bar stays out
+       of the way until the mouse comes near it: this screen faces the room. -->
+  <div class="slides-bar">
+    <label class="slides-btn">
+      <i class="fas fa-images"></i> Ajouter des photos
+      <input type="file" accept="image/*" multiple hidden (change)="onSlidesPicked($event)" />
+    </label>
+    @if (slideshow.addedCount() > 0) {
+      <span class="slides-count">{{ slideshow.addedCount() }} ajoutée(s)</span>
+      <button type="button" class="slides-btn" (click)="clearSlides()">
+        <i class="fas fa-trash"></i> Effacer
+      </button>
+    }
+  </div>
 </div>

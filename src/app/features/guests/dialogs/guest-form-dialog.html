@@ -41,8 +41,8 @@
       <label class="form-label" for="guestLink">Lien</label>
       <select class="form-select" id="guestLink" formControlName="link">
         <option value="">-- Sélectionner le lien --</option>
-        @for (link of links; track link) {
-          <option [value]="link">{{ link }}</option>
+        @for (option of linkOptions; track option.value) {
+          <option [value]="option.value">{{ option.label }}</option>
         }
       </select>
     </div>

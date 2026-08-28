@@ -38,7 +38,14 @@ create table if not exists public.guest (
 
   wedding_table_id integer not null references public.wedding_table(id) on delete restrict,
 
-  link          text not null check (link in ('Parent','Ami','Collègue','Connaissance','Église')),
+  -- Le cercle d'où vient l'invité. « Ami » et « Connaissance » ne font qu'un :
+  -- personne ne savait où placer la limite au moment de la saisie, et le
+  -- tirage au sort attribue ses lots au cercle entier.
+  link          text not null check (link in ('Parent','Église','Ami / Connaissance','Collègue')),
+  -- Le tirage au sort répartit ses vingt lots entre hommes et femmes ; la
+  -- colonne existe donc pour tous les invités, y compris ceux de l'Église qui
+  -- n'y participent pas.
+  gender        text not null check (gender in ('Homme','Femme')),
   -- Null = non renseigné, et donc non éligible au tirage au sort.
   is_christian  text check (is_christian in ('Oui','Non')),
   phone         text,

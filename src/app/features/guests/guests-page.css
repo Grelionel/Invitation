@@ -33,3 +33,23 @@ a.btn {
   filter: brightness(1.25);
   transform: translateY(-1px);
 }
+
+/*
+ * The name doubles as the way into a guest's details — clicking the row is what
+ * an operator tries first, and the eye button is two centimetres further right.
+ */
+.guest-name-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+
+.guest-name-link:hover {
+  color: var(--gold);
+  text-decoration: underline;
+}

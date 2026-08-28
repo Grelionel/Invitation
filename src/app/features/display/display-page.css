@@ -124,8 +124,14 @@
   letter-spacing: 1px;
 }
 
+/*
+ * The idle title.
+ *
+ * 125 px was sized for a two-word date; the sentence that replaced it ran off
+ * the bottom of the card. 64 px keeps it on three lines and inside the ticket.
+ */
 .date-day {
-  font-size: 125px;
+  font-size: 64px;
   font-weight: 900;
   color: #fff;
   line-height: 1;
@@ -409,6 +415,189 @@
   right: 5px;
   color: #fff;
   font-size: 18px;
+}
+
+/*
+ * The welcomed guest.
+ *
+ * These rules were missing: the markup was there, unstyled, and the name of an
+ * arriving guest came out at browser default size on a screen read from the far
+ * end of the room. Everything here is sized to be read standing up, ten metres
+ * away, so the block keeps to what a guest actually needs — their name, and
+ * their table.
+ */
+.guest-info {
+  text-align: center;
+  color: #fff;
+  animation: guest-in 0.6s ease-out;
+}
+
+@keyframes guest-in {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.content-welcome .welcome-bienvenu {
+  font-size: 58px;
+  letter-spacing: 4px;
+}
+
+.show-guest-status {
+  font-size: 34px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 6px;
+  color: #ffd9a8;
+  margin-top: 6px;
+}
+
+.show-guest-name {
+  font-size: 84px;
+  font-weight: 900;
+  line-height: 1.05;
+  margin: 6px 0 18px;
+  text-shadow: 3px 3px 10px rgba(231, 132, 11, 0.7);
+  /* A long family name must shrink rather than run off the card. */
+  overflow-wrap: anywhere;
+}
+
+/* The table is the one thing a guest is looking for, so it gets its own band. */
+.show-guest-table {
+  display: inline-flex;
+  align-items: center;
+  gap: 18px;
+  padding: 12px 34px;
+  border-radius: 14px;
+  background: #e7840b;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.show-guest-table-label {
+  font-size: 22px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  opacity: 0.9;
+}
+
+.show-guest-table-value {
+  font-size: 48px;
+  font-weight: 900;
+}
+
+.show-guest-details {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  margin-top: 22px;
+  flex-wrap: wrap;
+}
+
+.show-guest-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.show-guest-detail-label {
+  font-size: 18px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  color: #ffd9a8;
+}
+
+.show-guest-detail-value {
+  font-size: 32px;
+  font-weight: 800;
+}
+
+.show-guest-icon {
+  margin-top: 14px;
+  font-size: 34px;
+  color: #ffd9a8;
+}
+
+/*
+ * The welcome fills the card on its own: there is no photo column beside it,
+ * so the left section takes the whole width and the ticket stub goes away.
+ */
+.content-welcome {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.boarding-card.welcoming .left-section {
+  width: 100%;
+}
+
+.boarding-card.welcoming::after {
+  display: none;
+}
+
+/* ===== Adding photos from this screen ===== */
+.slides-bar {
+  position: fixed;
+  bottom: 14px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  opacity: 0.08;
+  transition: opacity 0.3s ease;
+  z-index: 500;
+}
+
+.slides-bar:hover,
+.slides-bar:focus-within {
+  opacity: 1;
+}
+
+.slides-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.slides-btn:hover {
+  background: #e7840b;
+}
+
+.slides-count {
+  color: #fff;
+  font-size: 13px;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 8px 12px;
+  border-radius: 10px;
+}
+
+@media (max-width: 950px) {
+  .show-guest-name {
+    font-size: 52px;
+  }
+
+  .content-welcome .welcome-bienvenu {
+    font-size: 46px;
+  }
+
+  .show-guest-table-value {
+    font-size: 32px;
+  }
 }
 
 /* Responsive */

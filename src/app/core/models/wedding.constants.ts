@@ -1,4 +1,4 @@
-import type { GuestLink, GuestStatus } from './guest';
+import type { Gender, GuestLink, GuestStatus } from './guest';
 
 /** Tables are named after Bible verses rather than numbered. */
 export const TABLE_NAMES: readonly string[] = [
@@ -36,11 +36,30 @@ export const TABLE_NAMES: readonly string[] = [
 
 export const GUEST_LINKS: readonly GuestLink[] = [
   'Parent',
-  'Ami',
-  'Collègue',
-  'Connaissance',
   'Église',
+  'Ami / Connaissance',
+  'Collègue',
 ];
+
+export const GENDERS: readonly Gender[] = ['Homme', 'Femme'];
+
+/** A link and a gender, as the form offers them: one list of eight entries. */
+export interface GuestLinkOption {
+  readonly link: GuestLink;
+  readonly gender: Gender;
+  /** What the `<option>` carries, since a select value is a single string. */
+  readonly value: string;
+  readonly label: string;
+}
+
+export const GUEST_LINK_OPTIONS: readonly GuestLinkOption[] = GENDERS.flatMap((gender) =>
+  GUEST_LINKS.map((link) => ({
+    link,
+    gender,
+    value: `${link}|${gender}`,
+    label: `${link} (${gender})`,
+  })),
+);
 
 export const GUEST_STATUSES: readonly GuestStatus[] = [
   'Couple',
@@ -59,10 +78,26 @@ export const MAX_TABLES = 30;
  */
 export const MAX_PER_TABLE = 10;
 
-/** Links eligible for the raffle — church guests are excluded by design. */
-export const LOTTERY_ELIGIBLE_LINKS: readonly GuestLink[] = [
-  'Parent',
-  'Ami',
-  'Collègue',
-  'Connaissance',
+/**
+ * How the twenty door prizes are shared out.
+ *
+ * The raffle is not one pot: each circle has its own count, so a table full of
+ * cousins cannot walk away with every gift. Church guests appear nowhere here —
+ * they are excluded by design, as are the guests who answered « Chrétien: Oui ».
+ */
+export interface PrizeCategory {
+  readonly link: GuestLink;
+  readonly gender: Gender;
+  readonly prizes: number;
+}
+
+export const LOTTERY_CATEGORIES: readonly PrizeCategory[] = [
+  { link: 'Parent', gender: 'Homme', prizes: 4 },
+  { link: 'Ami / Connaissance', gender: 'Homme', prizes: 3 },
+  { link: 'Collègue', gender: 'Homme', prizes: 3 },
+  { link: 'Parent', gender: 'Femme', prizes: 4 },
+  { link: 'Ami / Connaissance', gender: 'Femme', prizes: 3 },
+  { link: 'Collègue', gender: 'Femme', prizes: 3 },
 ];
+
+export const TOTAL_PRIZES = LOTTERY_CATEGORIES.reduce((total, c) => total + c.prizes, 0);

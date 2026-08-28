@@ -25,6 +25,7 @@
               }
             ],
             "styles": ["src/styles.css"],
+            "allowedCommonJsDependencies": ["qrcode", "dijkstrajs"],
             "outputPath": "dist/invitation"
           },
           "configurations": {

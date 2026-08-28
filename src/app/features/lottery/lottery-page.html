@@ -1,54 +1,130 @@
 <div class="container">
   <div class="header" style="text-align: center; margin-bottom: 30px">
     <h1><i class="fas fa-gift" style="margin-right: 15px"></i>Tirage au Sort</h1>
-    <p>Lancer le tirage pour découvrir le gagnant d'un lot</p>
+    <p>{{ prizesLeft() }} cadeau(x) restant(s) sur {{ totalPrizes }}</p>
   </div>
 
   <div class="lottery-hero">
-    @if (countdown(); as secondsLeft) {
-      <div class="spinner"></div>
-      <p class="loader-text">Tirage au sort en cours...</p>
-      <div class="countdown-number">{{ secondsLeft }}</div>
-      <div class="progress-bar-container">
-        <div class="progress-bar" [style.width.%]="progressPercent()"></div>
-      </div>
-    } @else if (winner(); as guest) {
-      <div class="winner-card">
-        <div class="winner-badge"><i class="fas fa-trophy"></i> Félicitations !</div>
-
-        <div class="info-item">
-          <span class="info-value">{{ guest.status }}</span>
+    @switch (phase()) {
+      @case ('countdown') {
+        <div class="draw-stage">
+          <div class="gift-box shaking">
+            <div class="gift-lid"></div>
+            <div class="gift-body"></div>
+            <div class="gift-ribbon"></div>
+          </div>
+          <p class="loader-text">Tirage au sort en cours…</p>
+          <div class="countdown-number">{{ countdown() }}</div>
+          <div class="progress-bar-container">
+            <div class="progress-bar" [style.width.%]="progressPercent()"></div>
+          </div>
         </div>
-        <div class="info-item">
-          <span class="info-value">{{ guest.nom.toUpperCase() }}</span>
-          @if (guest.status !== 'Couple') {
+      }
+
+      @case ('burst') {
+        <div class="draw-stage">
+          <div class="gift-box bursting">
+            <div class="gift-lid"></div>
+            <div class="gift-body"></div>
+            <div class="gift-ribbon"></div>
+            @for (angle of sparks; track angle) {
+              <span class="spark" [style.--angle]="angle + 'deg'"></span>
+            }
+          </div>
+        </div>
+      }
+
+      @case ('winner') {
+        @if (winner(); as guest) {
+          <div class="winner-card">
+            <div class="winner-badge"><i class="fas fa-trophy"></i> Félicitations !</div>
+
             <div class="info-item">
-              <span class="info-value">{{ guest.prenom ?? '-' }}</span>
+              <span class="info-value">{{ guest.status }}</span>
             </div>
-          }
-        </div>
-        <div class="info-item">
-          <span class="info-value">{{ guest.table }}</span>
-        </div>
+            <div class="info-item">
+              <span class="info-value">{{ guest.nom.toUpperCase() }}</span>
+            </div>
+            @if (guest.status !== 'Couple') {
+              <div class="info-item">
+                <span class="info-value">{{ guest.prenom ?? '-' }}</span>
+              </div>
+            }
+            <div class="info-item">
+              <span class="info-value">{{ guest.table }}</span>
+            </div>
+            @if (wonCategory(); as state) {
+              <p class="winner-category">{{ state.label }}</p>
+            }
 
-        <button type="button" class="btn btn-secondary" (click)="reset()" style="margin-top: 25px">
-          <i class="fas fa-redo"></i> Nouveau tirage
-        </button>
-      </div>
-    } @else {
-      <div class="lottery-start">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              (click)="next()"
+              style="margin-top: 25px"
+            >
+              <i class="fas fa-redo"></i> Tirage suivant
+            </button>
+          </div>
+        }
+      }
+
+      @default {
+        <div class="lottery-start">
+          <button
+            type="button"
+            class="btn btn-primary"
+            (click)="start()"
+            [disabled]="eligibleCount() === 0"
+            style="padding: 16px 40px; font-size: 1.3rem; border-radius: 50px; cursor: pointer"
+          >
+            <i class="fas fa-dice" style="margin-right: 10px"></i> Lancer le Tirage au Sort
+          </button>
+          <p class="lottery-eligible">{{ eligibleCount() }} invité(s) éligible(s)</p>
+        </div>
+      }
+    }
+  </div>
+
+  <!-- The prizes are shared out circle by circle, so the board shows each one:
+       what is left, who can still win it, and a way to draw it on its own. -->
+  <div class="category-grid">
+    @for (state of categories(); track state.label) {
+      <div class="category-card" [class.category-done]="state.left === 0">
+        <div class="category-name">{{ state.label }}</div>
+        <div class="category-count">
+          <span class="category-left">{{ state.left }}</span>
+          / {{ state.category.prizes }} cadeau(x)
+        </div>
+        <div class="category-pool">{{ state.pool.length }} éligible(s) en salle</div>
         <button
           type="button"
-          class="btn btn-primary"
-          (click)="start()"
-          style="padding: 16px 40px; font-size: 1.3rem; border-radius: 50px; cursor: pointer"
+          class="btn btn-secondary category-draw"
+          [disabled]="!drawableLabels().has(state.label) || phase() === 'countdown'"
+          (click)="start(state.label)"
         >
-          <i class="fas fa-dice" style="margin-right: 10px"></i> Lancer le Tirage au Sort
+          <i class="fas fa-gift"></i> Tirer
         </button>
-        <p class="lottery-eligible">{{ eligible().length }} invité(s) éligible(s)</p>
       </div>
     }
   </div>
+
+  @if (winners().length > 0) {
+    <div class="winners-board">
+      <h2><i class="fas fa-trophy"></i> Gagnants ({{ winners().length }}/{{ totalPrizes }})</h2>
+      <ol>
+        @for (win of winners(); track win.guestId) {
+          <li>
+            <span class="winner-name">{{ win.name }}</span>
+            <span class="winner-meta">{{ win.link }} ({{ win.gender }}) — {{ win.table }}</span>
+          </li>
+        }
+      </ol>
+      <button type="button" class="btn-danger" (click)="resetBoard()">
+        <i class="fas fa-rotate-left"></i> Remettre le tirage à zéro
+      </button>
+    </div>
+  }
 
   <div style="text-align: center; margin-top: 30px">
     <a

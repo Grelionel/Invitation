@@ -325,9 +325,8 @@ tbody tr:hover {
 }
 
 .link-parent { background: rgba(46, 204, 113, 0.2); color: #58d68d; }
-.link-ami { background: rgba(52, 152, 219, 0.2); color: #5dade2; }
+.link-ami-connaissance { background: rgba(52, 152, 219, 0.2); color: #5dade2; }
 .link-collegue { background: rgba(155, 89, 182, 0.2); color: #bb8fce; }
-.link-connaissance { background: rgba(149, 165, 166, 0.2); color: #aab7b8; }
 .link-eglise { background: rgba(241, 196, 15, 0.2); color: #f4d03f; }
 
 .present-badge {
@@ -670,6 +669,7 @@ tbody tr:hover {
 }
 
 .qr-display canvas, .qr-display img {
+    display: block;
     margin: 20px auto;
     border-radius: 12px;
     padding: 15px;

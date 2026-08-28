@@ -275,6 +275,34 @@ export class GuestStore {
     }
   }
 
+  /**
+   * Removes a table nobody is seated at.
+   *
+   * The occupancy check is done here so the operator gets « 4 invités y sont
+   * placés » instead of the foreign-key violation Postgres would raise. The
+   * database still refuses the deletion if a guest slipped in meanwhile.
+   *
+   * @returns an error message, or `null` when the table was removed.
+   */
+  async deleteTable(id: number): Promise<string | null> {
+    const table = this.tableList().find((candidate) => candidate.id === id);
+    if (!table) return 'Table introuvable';
+
+    const seated = this.seatsAt(table.name);
+    if (seated > 0) {
+      return `« ${table.name} » accueille ${seated} couvert(s) : déplacez-les d'abord`;
+    }
+
+    try {
+      await this.backend?.deleteTable(id);
+      this.tableList.update((tables) => tables.filter((candidate) => candidate.id !== id));
+      await this.cache();
+      return null;
+    } catch (error) {
+      return message(error);
+    }
+  }
+
   /** Identifiers are the database's job; without one, the app mints its own. */
   private mintLocally(draft: GuestDraft): Guest {
     return { ...draft, id: nextId(this.guestList()), present: false };

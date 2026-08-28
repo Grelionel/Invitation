@@ -22,6 +22,7 @@ const ROW: GuestRow = {
   prenom: 'Philipp',
   wedding_table_id: 19,
   link: 'Église',
+  gender: 'Femme',
   is_christian: 'Oui',
   phone: '+24177395411',
   seats: 2,
@@ -35,6 +36,7 @@ const DRAFT: GuestDraft = {
   prenom: 'Philipp',
   table: 'Ésaïe 54:5',
   link: 'Église',
+  gender: 'Femme',
   isChristian: 'Oui',
   phone: '+24177395411',
 };
@@ -53,6 +55,11 @@ describe('toGuest', () => {
 
   it('keeps accented values intact', () => {
     expect(toGuest(ROW, BY_ID).link).toBe('Église');
+  });
+
+  it('carries the gender the raffle sorts on', () => {
+    expect(toGuest(ROW, BY_ID).gender).toBe('Femme');
+    expect(toRow(DRAFT, BY_NAME).gender).toBe('Femme');
   });
 
   it('reads presence from the generated column', () => {
