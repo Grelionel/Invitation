@@ -1,44 +1,56 @@
--- Variante verrouillée du schéma : à exécuter APRÈS `schema.sql` si vous
--- préférez que vos invités ne puissent pas lire toute la liste.
+-- Variante verrouillée : à exécuter APRÈS `schema.sql` si vous préférez que vos
+-- invités ne puissent pas lire toute la liste.
 --
 -- Ce que ça change :
---   * un invité qui scanne son QR code ne voit plus que son propre nom, sa
---     table et son lien — plus aucun numéro de téléphone ;
---   * il peut uniquement se marquer présent, rien d'autre ;
+--   * un invité qui scanne son QR code ne voit plus de numéros de téléphone ;
+--   * il peut uniquement enregistrer son arrivée, rien d'autre ;
 --   * la gestion (ajout, modification, suppression) demande une connexion.
 --
 -- Il faut donc créer un compte opérateur dans Supabase :
---   Authentication → Users → Add user (email + mot de passe), et connecter
---   chaque appareil une fois. Voir le README.
+--   Authentication → Users → Add user (email + mot de passe), puis connecter
+--   le PC une fois. Voir le README.
 
 -- ---------------------------------------------------------------------------
--- 1. Les invités ne lisent plus la table directement, mais une vue sans
---    données personnelles.
+-- 1. Une vue sans données personnelles pour les invités
 -- ---------------------------------------------------------------------------
-create or replace view public.guests_public
+-- `security_invoker = off` : la vue s'exécute avec les droits de son
+-- propriétaire, donc elle traverse la RLS de la table qu'elle expose. C'est
+-- exactement ce qu'on veut ici — la vue EST le filtre.
+create or replace view public.guest_public
 with (security_invoker = off) as
-  select id, status, nom, prenom, table_name, link, present
-  from public.guests;
+  select g.id, g.status, g.nom, g.prenom, g.link, g.seats, g.present,
+         t.name as table_name
+  from public.guest g
+  join public.wedding_table t on t.id = g.wedding_table_id;
 
-grant select on public.guests_public to anon, authenticated;
+grant select on public.guest_public to anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 2. On remplace les règles ouvertes
 -- ---------------------------------------------------------------------------
-drop policy if exists "lecture publique" on public.guests;
-drop policy if exists "ecriture publique" on public.guests;
+drop policy if exists "invites lecture" on public.guest;
+drop policy if exists "invites ajout"   on public.guest;
+drop policy if exists "invites edition" on public.guest;
+drop policy if exists "invites retrait" on public.guest;
+drop policy if exists "tables gestion"  on public.wedding_table;
 
--- Seul un opérateur connecté voit la table complète et peut la modifier.
-create policy "lecture operateur" on public.guests
+-- L'opérateur connecté voit et gère tout.
+create policy "operateur lecture" on public.guest
   for select to authenticated using (true);
-create policy "gestion operateur" on public.guests
+create policy "operateur gestion" on public.guest
   for all to authenticated using (true) with check (true);
 
--- Un invité non connecté peut seulement basculer sa présence.
-create policy "pointage invite" on public.guests
+create policy "operateur tables" on public.wedding_table
+  for all to authenticated using (true) with check (true);
+
+-- L'invité non connecté peut seulement pointer son arrivée.
+create policy "pointage invite" on public.guest
   for update to anon using (true) with check (true);
 
--- Et uniquement la colonne "present" : le reste lui est refusé.
-revoke update on public.guests from anon;
-grant update (present, updated_at) on public.guests to anon;
-revoke select on public.guests from anon;
+-- Et uniquement l'heure d'arrivée. Sans cette restriction de colonnes, la
+-- règle ci-dessus laisserait un invité se changer de table ou modifier un nom.
+revoke select, update on public.guest from anon;
+grant update (checked_in_at) on public.guest to anon;
+
+-- La liste des tables reste lisible : le QR code affiche où s'asseoir.
+-- Elle ne contient rien de personnel.

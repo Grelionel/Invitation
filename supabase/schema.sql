@@ -1,43 +1,169 @@
 -- Schéma de la base Supabase.
 --
 -- À coller dans Supabase → SQL Editor → New query, puis exécuter une fois.
--- Sans risque à relancer : tout est en "if not exists" / "or replace".
+-- Ce fichier est réexécutable sans risque tant qu'il n'y a pas de données.
+--
+-- Deux entités : la table de la salle (le passage biblique) et l'invité.
+-- La première n'existait pas dans la version précédente — le nom de la table
+-- était recopié en texte libre dans chaque invité, ce qui autorisait les fautes
+-- de frappe et rendait tout renommage impossible.
 
 -- ---------------------------------------------------------------------------
--- 1. La table des invités
+-- 1. Les tables de la salle
 -- ---------------------------------------------------------------------------
-create table if not exists public.guests (
-  id            integer primary key,
-  status        text    not null,
-  nom           text    not null,
+create table if not exists public.wedding_table (
+  id          integer generated always as identity primary key,
+  -- Le passage biblique identifie la table : c'est ce que voient les invités.
+  name        text    not null unique,
+  -- Le nombre de couverts appartient à la table, pas à l'application : toutes
+  -- les tables n'ont pas forcément la même taille.
+  seat_limit  smallint not null default 10 check (seat_limit > 0),
+  created_at  timestamptz not null default now()
+);
+
+-- ---------------------------------------------------------------------------
+-- 2. Les invités
+-- ---------------------------------------------------------------------------
+create table if not exists public.guest (
+  -- Minté par la base. L'ancien schéma laissait l'application calculer
+  -- max(id) + 1, ce qui donne le même identifiant à deux invités si le PC et
+  -- le téléphone en ajoutent au même moment.
+  id            integer generated always as identity primary key,
+
+  status        text not null check (status in ('Couple','Monsieur','Madame','Mademoiselle')),
+  nom           text not null check (length(trim(nom)) > 0),
+  -- Null = sans objet : un couple s'affiche sous son seul nom de famille.
   prenom        text,
-  table_name    text    not null,
-  link          text    not null,
-  is_christian  text,
+
+  wedding_table_id integer not null references public.wedding_table(id) on delete restrict,
+
+  link          text not null check (link in ('Parent','Ami','Collègue','Connaissance','Église')),
+  -- Null = non renseigné, et donc non éligible au tirage au sort.
+  is_christian  text check (is_christian in ('Oui','Non')),
   phone         text,
-  present       boolean not null default false,
+
+  -- La règle « un couple occupe deux couverts » vivait uniquement dans le code
+  -- TypeScript. Ici la base la calcule, donc les deux ne peuvent plus diverger.
+  seats         smallint generated always as (case when status = 'Couple' then 2 else 1 end) stored,
+
+  -- Null = pas encore arrivé. Remplace l'ancien booléen `present`, qui écrasait
+  -- l'heure d'arrivée : l'écran d'accueil devait deviner les nouveaux arrivants
+  -- en comparant deux états successifs.
+  checked_in_at timestamptz,
+  present       boolean generated always as (checked_in_at is not null) stored,
+
+  created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
 
--- Les écrans reçoivent les changements en direct (plus de rafraîchissement
--- toutes les 2 secondes).
-alter publication supabase_realtime add table public.guests;
+create index if not exists guest_wedding_table_id_idx on public.guest (wedding_table_id);
+-- L'écran d'accueil ne demande que « qui est arrivé depuis telle heure ».
+create index if not exists guest_checked_in_at_idx on public.guest (checked_in_at desc nulls last);
 
 -- ---------------------------------------------------------------------------
--- 2. Les règles d'accès
+-- 3. Ce que la base tient toute seule
 -- ---------------------------------------------------------------------------
--- Sans "row level security", la table est fermée. Avec, ce sont les règles
--- ci-dessous qui décident de ce qui est autorisé.
-alter table public.guests enable row level security;
+create or replace function public.touch_updated_at() returns trigger
+language plpgsql as $$
+begin
+  new.updated_at := now();
+  return new;
+end $$;
 
-drop policy if exists "lecture publique" on public.guests;
-drop policy if exists "ecriture publique" on public.guests;
+drop trigger if exists guest_touch_updated_at on public.guest;
+create trigger guest_touch_updated_at
+  before update on public.guest
+  for each row execute function public.touch_updated_at();
+
+-- La capacité dépend des autres lignes de la même table, ce qu'une contrainte
+-- de colonne ne sait pas exprimer. Vérifier côté application ne suffit plus :
+-- deux appareils peuvent ajouter le dernier couvert au même instant.
+create or replace function public.enforce_table_capacity() returns trigger
+language plpgsql as $$
+declare
+  taken integer;
+  allowed integer;
+  table_name text;
+begin
+  select t.seat_limit, t.name into allowed, table_name
+    from public.wedding_table t where t.id = new.wedding_table_id
+    for update;                     -- sérialise les ajouts sur la même table
+
+  select coalesce(sum(g.seats), 0) into taken
+    from public.guest g
+    where g.wedding_table_id = new.wedding_table_id
+      and g.id is distinct from new.id;
+
+  if taken + (case when new.status = 'Couple' then 2 else 1 end) > allowed then
+    raise exception 'La table % est pleine (% / % couverts)', table_name, taken, allowed
+      using errcode = 'check_violation';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists guest_enforce_capacity on public.guest;
+create trigger guest_enforce_capacity
+  before insert or update of wedding_table_id, status on public.guest
+  for each row execute function public.enforce_table_capacity();
+
+-- ---------------------------------------------------------------------------
+-- 4. Les 30 tables par défaut
+-- ---------------------------------------------------------------------------
+insert into public.wedding_table (name) values
+  ('Genèse 2:24'), ('Matthieu 19:5'), ('Marc 10:9'), ('Jean 15:12'),
+  ('1 Corinthiens 13:4-8'), ('Éphésiens 5:25'), ('Colossiens 3:14'),
+  ('1 Jean 4:7'), ('Romains 12:10'), ('1 Pierre 4:8'),
+  ('Proverbes 18:22'), ('Cantique 8:6'), ('Jean 3:16'),
+  ('Philippiens 4:7'), ('Galates 5:22'), ('Romains 15:13'),
+  ('Psaumes 128:3'), ('Proverbes 31:10'), ('Ésaïe 54:5'),
+  ('Osée 2:19'), ('Jean 14:27'), ('Matthieu 5:9'),
+  ('Romains 8:28'), ('Jérémie 29:11'), ('Psaumes 37:4'),
+  ('Philippiens 4:13'), ('Hébreux 11:1'), ('Jacques 1:2'),
+  ('1 Pierre 1:8'), ('Psaumes 16:11')
+on conflict (name) do nothing;
+
+-- ---------------------------------------------------------------------------
+-- 5. Le direct
+-- ---------------------------------------------------------------------------
+-- `alter publication ... add table` échoue si la table y est déjà, d'où le test.
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'guest'
+  ) then
+    alter publication supabase_realtime add table public.guest;
+  end if;
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- 6. Les règles d'accès
+-- ---------------------------------------------------------------------------
+alter table public.guest          enable row level security;
+alter table public.wedding_table  enable row level security;
+
+drop policy if exists "lecture publique"  on public.guest;
+drop policy if exists "ecriture publique" on public.guest;
+drop policy if exists "invites lecture"   on public.guest;
+drop policy if exists "invites ajout"     on public.guest;
+drop policy if exists "invites edition"   on public.guest;
+drop policy if exists "invites retrait"   on public.guest;
+drop policy if exists "tables lecture"    on public.wedding_table;
+drop policy if exists "tables gestion"    on public.wedding_table;
 
 -- ATTENTION — voir la section « Sécurité » du README.
 --
--- Ces règles ouvrent la table à toute personne qui charge le site, donc à tous
--- vos invités : ils peuvent lire la liste complète (numéros de téléphone
--- compris) et la modifier. C'est le réglage le plus simple, pas le plus sûr.
--- Le README explique comment le restreindre.
-create policy "lecture publique" on public.guests for select using (true);
-create policy "ecriture publique" on public.guests for all using (true) with check (true);
+-- Ces règles ouvrent la base à toute personne qui charge le site, donc à tous
+-- vos invités : ils peuvent lire la liste complète, numéros de téléphone
+-- compris. C'est le réglage le plus simple, pas le plus sûr ;
+-- `schema-secure.sql` le restreint.
+--
+-- Les droits sont séparés par opération plutôt qu'en un seul « for all » :
+-- la suppression est ainsi une décision distincte, et non un effet de bord.
+create policy "invites lecture" on public.guest for select using (true);
+create policy "invites ajout"   on public.guest for insert with check (true);
+create policy "invites edition" on public.guest for update using (true) with check (true);
+create policy "invites retrait" on public.guest for delete using (true);
+
+create policy "tables lecture"  on public.wedding_table for select using (true);
+create policy "tables gestion"  on public.wedding_table for all using (true) with check (true);
