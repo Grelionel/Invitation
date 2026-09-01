@@ -23,10 +23,10 @@
             <div class="show-guest-status">{{ guest.status }}</div>
             <div class="show-guest-name">{{ name() }}</div>
             <div class="show-guest-table">
-              <span class="show-guest-table-label">Table</span>
-              <span class="show-guest-table-value">{{ guest.table }}</span>
+              <span class="show-guest-table-label mt-3 mb-3">Table</span>
+              <span class="show-guest-table-value mt-3 mb-3">{{ guest.table }}</span>
             </div>
-            <div class="show-guest-details">
+            <!-- <div class="show-guest-details">
               <div class="show-guest-detail">
                 <span class="show-guest-detail-label">Lien</span>
                 <span class="show-guest-detail-value">{{ link() }}</span>
@@ -43,7 +43,7 @@
                   #{{ guest.id.toString().padStart(2, '0') }}
                 </span>
               </div>
-            </div>
+            </div> -->
             <div class="show-guest-icon"><i class="fas" [class]="icon()"></i></div>
           </div>
         </div>

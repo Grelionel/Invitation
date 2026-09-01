@@ -86,9 +86,9 @@
     }
   </div>
 
-  <!-- The prizes are shared out circle by circle, so the board shows each one:
+  <!-- The prizes are shared out circle by circle, so the board shows each one:<div class="category-grid">
        what is left, who can still win it, and a way to draw it on its own. -->
-  <div class="category-grid">
+  <!-- <div class="category-grid">
     @for (state of categories(); track state.label) {
       <div class="category-card" [class.category-done]="state.left === 0">
         <div class="category-name">{{ state.label }}</div>
@@ -107,7 +107,7 @@
         </button>
       </div>
     }
-  </div>
+  </div> -->
 
   @if (winners().length > 0) {
     <div class="winners-board">
