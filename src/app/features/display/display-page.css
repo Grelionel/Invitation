@@ -542,50 +542,6 @@
   display: none;
 }
 
-/* ===== Adding photos from this screen ===== */
-.slides-bar {
-  position: fixed;
-  bottom: 14px;
-  right: 14px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  opacity: 0.08;
-  transition: opacity 0.3s ease;
-  z-index: 500;
-}
-
-.slides-bar:hover,
-.slides-bar:focus-within {
-  opacity: 1;
-}
-
-.slides-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 10px;
-  background: rgba(0, 0, 0, 0.55);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.slides-btn:hover {
-  background: #e7840b;
-}
-
-.slides-count {
-  color: #fff;
-  font-size: 13px;
-  background: rgba(0, 0, 0, 0.55);
-  padding: 8px 12px;
-  border-radius: 10px;
-}
-
 @media (max-width: 950px) {
   .show-guest-name {
     font-size: 52px;

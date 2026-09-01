@@ -16,7 +16,7 @@ import { ToastService } from '../../core/services/toast.service';
 import { type CategoryState, LotteryService } from './lottery.service';
 
 /** Suspense countdown, in seconds, before the box bursts. */
-const COUNTDOWN_SECONDS = 10;
+const COUNTDOWN_SECONDS = 5;
 /** How long the burst runs before the winner is readable. */
 const BURST_MS = 900;
 

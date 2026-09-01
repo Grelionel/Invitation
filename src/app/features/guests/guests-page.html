@@ -64,6 +64,15 @@
       >
         <i class="fas fa-chair"></i>
       </button>
+      <button
+        type="button"
+        class="btn btn-secondary btn-icon"
+        (click)="open('slides')"
+        title="Photos du diaporama"
+        aria-label="Photos du diaporama"
+      >
+        <i class="fas fa-images"></i>
+      </button>
       <a
         class="btn btn-secondary btn-icon"
         routerLink="/lottery"
@@ -252,6 +261,14 @@
     <app-tables-dialog
       (saved)="saveTable($event)"
       (deleted)="deleteTable($event)"
+      (closed)="close()"
+    />
+  }
+  @case ('slides') {
+    <app-slides-dialog
+      (added)="addSlides($event)"
+      (removed)="removeSlide($event)"
+      (cleared)="clearSlides()"
       (closed)="close()"
     />
   }

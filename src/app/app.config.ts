@@ -3,6 +3,7 @@ import { provideHttpClient, withFetch } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
 
 import { provideGuestsBackend } from './core/services/guests-backend.provider';
+import { provideSlidesBackend } from './core/services/slides-backend.provider';
 import { routes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
@@ -12,5 +13,6 @@ export const appConfig: ApplicationConfig = {
     // Only the welcome screen calls out over HTTP, and only for its slide manifest.
     provideHttpClient(withFetch()),
     ...provideGuestsBackend(),
+    ...provideSlidesBackend(),
   ],
 };

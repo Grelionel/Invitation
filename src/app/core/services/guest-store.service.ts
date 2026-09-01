@@ -13,6 +13,18 @@ const TABLES_KEY = 'weddingTables';
 /** Name of the channel the app's windows use to tell each other about a write. */
 const CHANNEL_NAME = 'wedding-store';
 
+/**
+ * How often the shared list is re-read while a screen is watching it.
+ *
+ * The realtime subscription is meant to make this pointless, and on a healthy
+ * project it is: the poll finds nothing and costs one small request. It is here
+ * because the evening cannot be bet on a socket — a project whose publication
+ * never got `public.guest`, a phone down to one bar, a laptop waking from
+ * sleep — and because the failure it covers is the one that matters: an
+ * arrival scanned at the door that never reaches the hall screen.
+ */
+const POLL_INTERVAL_MS = 4000;
+
 export interface WeddingStats {
   readonly guests: number;
   readonly tables: number;
@@ -98,12 +110,15 @@ export class GuestStore {
   private watchers = 0;
   private stopWatching: (() => void) | null = null;
   private channel: BroadcastChannel | null = null;
+  private pulling: Promise<void> | null = null;
+  /** Set once the operator has been told the live connection is down. */
+  private realtimeReported = false;
 
   /**
    * Keeps the list in step with the other screens for as long as the caller
-   * lives. Supabase pushes changes made on any device; the broadcast channel
-   * covers the windows of this browser, which is all there is when Supabase
-   * has not been configured.
+   * lives. Supabase pushes changes made on any device, a poll catches what the
+   * socket misses, and the broadcast channel covers the windows of this
+   * browser — which is all there is when Supabase has not been configured.
    *
    * Subscriptions are shared, so three screens in one window still cost one
    * connection.
@@ -122,18 +137,57 @@ export class GuestStore {
   }
 
   private startWatching(): () => void {
-    const stopBackend = this.backend?.watch(() => void this.pull(true)) ?? null;
+    const stopBackend =
+      this.backend?.watch(
+        () => void this.pull(true),
+        (problem) => this.reportRealtimeDown(problem),
+      ) ?? null;
 
     if (typeof BroadcastChannel !== 'undefined') {
       this.channel = new BroadcastChannel(CHANNEL_NAME);
       this.channel.onmessage = () => void this.reloadLocal();
     }
 
+    // Belt and braces, for the reasons given at `POLL_INTERVAL_MS`.
+    const poll = this.backend ? setInterval(() => void this.pull(true), POLL_INTERVAL_MS) : null;
+
+    // A phone that has been in a pocket, or a laptop coming back from sleep,
+    // has a stale list and a socket that may not have noticed it dropped.
+    // Waking up is the moment to catch up, and asking costs one request.
+    const onWake = (): void => {
+      if (document.visibilityState === 'visible') void this.pull(true);
+    };
+    if (this.backend) {
+      document.addEventListener('visibilitychange', onWake);
+      window.addEventListener('focus', onWake);
+      window.addEventListener('online', onWake);
+    }
+
     return () => {
       stopBackend?.();
+      if (poll !== null) clearInterval(poll);
+      document.removeEventListener('visibilitychange', onWake);
+      window.removeEventListener('focus', onWake);
+      window.removeEventListener('online', onWake);
       this.channel?.close();
       this.channel = null;
     };
+  }
+
+  /**
+   * Says once that the live connection is down.
+   *
+   * Once, because the client retries on its own and the message would
+   * otherwise repeat all evening. The list keeps working — the poll sees to
+   * that — so the wording says what is slower rather than what is broken.
+   */
+  private reportRealtimeDown(problem: string): void {
+    if (this.realtimeReported) return;
+    this.realtimeReported = true;
+    this.toast.error(
+      `Mises à jour en direct indisponibles (${problem}). La liste est rafraîchie toutes les ` +
+        `${Math.round(POLL_INTERVAL_MS / 1000)} secondes.`,
+    );
   }
 
   /** Announces a write so the other windows of this browser pick it up. */
@@ -170,13 +224,21 @@ export class GuestStore {
    * Pulls the shared data into the app, and does nothing when it already
    * matches.
    *
-   * `background` marks the calls driven by the realtime subscription: a change
-   * arriving mid-evening is worth announcing, while a network blip is not —
-   * the next change will retry. The initial load is the mirror image: there is
-   * no change to announce, but the operator must know when the shared list
-   * could not be reached.
+   * `background` marks the calls driven by the subscription and by the poll: a
+   * change arriving mid-evening is worth announcing, while a network blip is
+   * not — the next poll will retry. The initial load is the mirror image:
+   * there is no change to announce, but the operator must know when the shared
+   * list could not be reached.
+   *
+   * Calls overlap now that there are three sources of them, so a read already
+   * in flight is joined rather than doubled.
    */
-  private async pull(background: boolean): Promise<void> {
+  private pull(background: boolean): Promise<void> {
+    this.pulling ??= this.pullOnce(background).finally(() => (this.pulling = null));
+    return this.pulling;
+  }
+
+  private async pullOnce(background: boolean): Promise<void> {
     if (!this.backend) return;
     try {
       const { tables, guests } = await this.backend.fetchAll();
@@ -239,7 +301,7 @@ export class GuestStore {
   }
 
   /**
-   * Marks attendance from the list.
+   * Marks attendance from the list, or from a ticket scanned at the door.
    *
    * This one writes a single column rather than the whole guest, so a device
    * recording arrivals cannot clobber an edit another one is making.
@@ -248,8 +310,13 @@ export class GuestStore {
    */
   async setPresence(id: number, present: boolean): Promise<void> {
     const stored = this.backend ? await this.backend.setPresence(id, present) : null;
+    // Without a database the hour of arrival is stamped here, so the welcome
+    // screen can order a queue at the door the same way either side.
+    const checkedInAt = present ? new Date().toISOString() : null;
     this.guestList.update((guests) =>
-      guests.map((guest) => (guest.id === id ? (stored ?? { ...guest, present }) : guest)),
+      guests.map((guest) =>
+        guest.id === id ? (stored ?? { ...guest, present, checkedInAt }) : guest,
+      ),
     );
     await this.cache();
   }
@@ -305,7 +372,7 @@ export class GuestStore {
 
   /** Identifiers are the database's job; without one, the app mints its own. */
   private mintLocally(draft: GuestDraft): Guest {
-    return { ...draft, id: nextId(this.guestList()), present: false };
+    return { ...draft, id: nextId(this.guestList()), present: false, checkedInAt: null };
   }
 
   /** Refreshes the offline copy and tells the other windows of this browser. */

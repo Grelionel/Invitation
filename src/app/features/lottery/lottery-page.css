@@ -63,6 +63,42 @@
   border-radius: 4px;
 }
 
+/*
+ * The count, printed on the parcel.
+ *
+ * It rides the box's own shake instead of holding still beside it, and beats
+ * once per second so the room can follow it from the back of the hall without
+ * reading the digit.
+ */
+.gift-countdown {
+  position: absolute;
+  bottom: 0;
+  left: 10px;
+  width: 140px;
+  height: 105px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3.4rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 3px 10px rgba(0, 0, 0, 0.45);
+  animation: gift-tick 1s ease-out infinite;
+}
+
+@keyframes gift-tick {
+  0% {
+    transform: scale(1.35);
+    opacity: 0.85;
+  }
+  40%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
 .gift-box.shaking {
   animation: gift-shake 0.7s ease-in-out infinite;
 }
@@ -148,12 +184,21 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .gift-box.shaking,
+  /* The one-shot animations are cut to nothing, which lands them on their end
+     state — the lid gone, the sparks spent. */
   .gift-box.bursting .gift-lid,
   .gift-box.bursting .gift-body,
   .gift-box.bursting .gift-ribbon,
   .spark {
     animation-duration: 0.01s;
+  }
+
+  /* The looping ones are stopped instead: shortening a `infinite` animation
+     turns a gentle shake into a strobe, for the very readers who asked for
+     less of it. */
+  .gift-box.shaking,
+  .gift-countdown {
+    animation: none;
   }
 }
 

@@ -8,13 +8,17 @@
     @switch (phase()) {
       @case ('countdown') {
         <div class="draw-stage">
+          <!-- The count sits on the parcel rather than under it: the room is
+               watching one object, and it is the box that bursts. -->
           <div class="gift-box shaking">
             <div class="gift-lid"></div>
             <div class="gift-body"></div>
             <div class="gift-ribbon"></div>
+            <div class="gift-countdown" [attr.aria-label]="countdown() + ' secondes'">
+              {{ countdown() }}
+            </div>
           </div>
           <p class="loader-text">Tirage au sort en cours…</p>
-          <div class="countdown-number">{{ countdown() }}</div>
           <div class="progress-bar-container">
             <div class="progress-bar" [style.width.%]="progressPercent()"></div>
           </div>

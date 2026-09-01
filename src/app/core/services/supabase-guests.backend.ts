@@ -126,7 +126,17 @@ export class SupabaseGuestsBackend implements GuestsBackend {
     this.remember([...this.byId.values()].filter((table) => table.id !== id));
   }
 
-  watch(onChange: () => void): () => void {
+  /**
+   * Opens the live connection, and says so when it does not open.
+   *
+   * `subscribe` used to be called without its status callback, which made a
+   * dead channel indistinguishable from a quiet evening: nothing threw,
+   * nothing logged, and the arrivals recorded on a phone simply never reached
+   * the hall screen. The store polls as well now, so a lost channel only
+   * slows the screen down — but the operator still has to be told, because the
+   * cure is one SQL statement (`supabase/migration-realtime.sql`).
+   */
+  watch(onChange: () => void, onIssue?: (problem: string) => void): () => void {
     let stop: (() => void) | null = null;
     let cancelled = false;
 
@@ -136,7 +146,20 @@ export class SupabaseGuestsBackend implements GuestsBackend {
         .channel('wedding-changes')
         .on('postgres_changes', { event: '*', schema: 'public', table: GUESTS }, () => onChange())
         .on('postgres_changes', { event: '*', schema: 'public', table: TABLES }, () => onChange())
-        .subscribe();
+        .subscribe((status, error) => {
+          if (cancelled) return;
+          // A channel that opens mid-evening may have missed a change while it
+          // was down, so the list is re-read rather than trusted.
+          if (status === 'SUBSCRIBED') {
+            onChange();
+            return;
+          }
+          // `CLOSED` is also what a deliberate `removeChannel` reports, and
+          // `cancelled` above is what tells the two apart.
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            onIssue?.(error?.message ?? status);
+          }
+        });
       stop = () => void client.removeChannel(channel);
     });
 

@@ -3,6 +3,7 @@ import {
   Component,
   DestroyRef,
   computed,
+  effect,
   inject,
   signal,
 } from '@angular/core';
@@ -18,25 +19,48 @@ import {
 } from '../../core/models/guest';
 import type { WeddingTable } from '../../core/models/wedding-table';
 import { GuestStore } from '../../core/services/guest-store.service';
+import { SlidesLibrary } from '../../core/services/slides-library.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmDialog } from './dialogs/confirm-dialog';
 import { GuestFormDialog } from './dialogs/guest-form-dialog';
 import { GuestViewDialog } from './dialogs/guest-view-dialog';
+import { SlidesDialog } from './dialogs/slides-dialog';
 import { TablesDialog } from './dialogs/tables-dialog';
 
 const ITEMS_PER_PAGE = 10;
 
-type OpenDialog = 'guest' | 'tables' | 'view' | 'confirm' | null;
+/**
+ * How long a scanned ticket waits for the shared list before it is called
+ * unknown.
+ *
+ * A phone opening the site from a QR code loads the list and the ticket at the
+ * same moment, and on a weak signal the ticket wins the race. Declaring the
+ * guest missing there was wrong twice over: the host reads « billet inconnu »
+ * about someone standing in front of them, and the check-in they came for
+ * never opens. The store re-reads every few seconds, so this leaves room for
+ * more than one attempt.
+ */
+const UNKNOWN_TICKET_MS = 8000;
+
+type OpenDialog = 'guest' | 'tables' | 'view' | 'confirm' | 'slides' | null;
 
 @Component({
   selector: 'app-guests-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, ConfirmDialog, GuestFormDialog, GuestViewDialog, TablesDialog],
+  imports: [
+    RouterLink,
+    ConfirmDialog,
+    GuestFormDialog,
+    GuestViewDialog,
+    SlidesDialog,
+    TablesDialog,
+  ],
   templateUrl: './guests-page.html',
   styleUrl: './guests-page.css',
 })
 export class GuestsPage {
   protected readonly store = inject(GuestStore);
+  private readonly slides = inject(SlidesLibrary);
   private readonly toast = inject(ToastService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -46,6 +70,8 @@ export class GuestsPage {
   protected readonly dialog = signal<OpenDialog>(null);
   /** True while the open dialog came from a ticket scanned at the door. */
   protected readonly arrival = signal(false);
+  /** Id read from a scanned ticket, until the guest it names is in the list. */
+  private readonly pendingTicket = signal<number | null>(null);
 
   /**
    * The guest a dialog is acting on, held by id rather than by value: marking
@@ -128,32 +154,58 @@ export class GuestsPage {
   });
 
   constructor() {
-    void this.store.load().then(() => this.openScannedTicket());
+    const destroyRef = inject(DestroyRef);
+    this.readScannedTicket();
+    void this.store.load();
     // The welcome screen usually runs in a second window; a change made here
     // has to reach it without the operator touching anything.
-    this.store.watch(inject(DestroyRef));
+    this.store.watch(destroyRef);
+    // The ticket is opened by whichever refresh of the list first contains the
+    // guest, rather than by the one load that happened to run first.
+    effect(() => this.openScannedTicket(this.store.guests()));
+
+    // The photos are managed from here, so this page reads them too.
+    void this.slides.load();
+
+    const giveUp = setTimeout(() => this.reportUnknownTicket(), UNKNOWN_TICKET_MS);
+    destroyRef.onDestroy(() => clearTimeout(giveUp));
   }
 
   /**
-   * Opens the guest whose ticket was just scanned.
+   * Takes the scanned ticket out of the address, and drops it from there.
    *
    * The QR code carries a plain link, so the phone camera does the scanning and
-   * the application carries no camera code of its own. The parameter is dropped
-   * once the dialog is open, otherwise a refresh would reopen it hours later.
+   * the application carries no camera code of its own. The parameter goes as
+   * soon as it is read, otherwise a refresh would reopen the check-in hours
+   * later.
    */
-  private async openScannedTicket(): Promise<void> {
+  private readScannedTicket(): void {
     const raw = this.route.snapshot.queryParamMap.get(CHECK_IN_PARAM);
     if (!raw) return;
+    this.pendingTicket.set(Number(raw));
+    void this.router.navigate([], { queryParams: {}, replaceUrl: true });
+  }
 
-    await this.router.navigate([], { queryParams: {}, replaceUrl: true });
+  /** Opens the check-in as soon as the list contains the guest that was scanned. */
+  private openScannedTicket(guests: readonly Guest[]): void {
+    const id = this.pendingTicket();
+    if (id === null) return;
 
-    const guest = this.store.guests().find((candidate) => candidate.id === Number(raw));
-    if (!guest) {
-      this.toast.error(`Billet inconnu (invité #${raw}) : la liste ne le contient pas.`);
-      return;
-    }
+    const guest = guests.find((candidate) => candidate.id === id);
+    // Not an error yet: the shared list may still be on its way.
+    if (!guest) return;
+
+    this.pendingTicket.set(null);
     this.arrival.set(true);
     this.open('view', guest);
+  }
+
+  /** Says so when the ticket names nobody the list has heard of. */
+  private reportUnknownTicket(): void {
+    const id = this.pendingTicket();
+    if (id === null) return;
+    this.pendingTicket.set(null);
+    this.toast.error(`Billet inconnu (invité #${id}) : la liste ne le contient pas.`);
   }
 
   protected name(guest: Guest): string {
@@ -243,6 +295,33 @@ export class GuestsPage {
       return;
     }
     this.toast.show(`Table « ${table.name} » supprimée`, 'info');
+  }
+
+  protected async addSlides(files: readonly File[]): Promise<void> {
+    try {
+      const added = await this.slides.add(files);
+      this.toast.success(`${added} photo(s) ajoutée(s) au diaporama`);
+    } catch (error) {
+      this.toast.error(`Photos non ajoutées: ${reason(error)}`);
+    }
+  }
+
+  protected async removeSlide(id: string): Promise<void> {
+    try {
+      await this.slides.remove(id);
+      this.toast.show('Photo supprimée', 'info');
+    } catch (error) {
+      this.toast.error(`Suppression impossible: ${reason(error)}`);
+    }
+  }
+
+  protected async clearSlides(): Promise<void> {
+    try {
+      await this.slides.clear();
+      this.toast.show('Photos ajoutées effacées', 'info');
+    } catch (error) {
+      this.toast.error(`Effacement impossible: ${reason(error)}`);
+    }
   }
 
   /** Attendance is recorded from the list, and from a scanned ticket. */

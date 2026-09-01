@@ -1,85 +1,58 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { Injectable, effect, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
-import { LocalStoreService } from '../../core/services/local-store.service';
+import { SlidesLibrary } from '../../core/services/slides-library.service';
 
 const MANIFEST_URL = 'assets/img/slide/slides.json';
 const FALLBACK_SLIDE = 'assets/img/slide/1.png';
-const ADDED_KEY = 'weddingSlides';
-
-/** Longest side of a stored photo. A 4000 px original helps no projector. */
-const MAX_EDGE_PX = 1920;
-const JPEG_QUALITY = 0.85;
 
 /**
  * Cycles through the couple's photos on the welcome screen.
  *
  * Two sources feed it. The build-time manifest (see
  * `scripts/generate-slides-manifest.mjs`) holds the photos shipped with the
- * site; the rest are added from the screen itself on the evening, and live in
- * this browser's IndexedDB — which is why the button sits on the welcome screen
- * rather than in the guest list: a photo added here is shown here, on the
- * machine plugged into the projector.
+ * site; the rest come from `SlidesLibrary`, which is what the guest list adds
+ * to and removes from. Either change re-enters the rotation at once, so the
+ * operator can fix a photo from the first page while the screen is running.
  *
  * The order is shuffled so a long evening does not replay the same sequence.
  */
 @Injectable()
 export class SlideshowService {
   private readonly http = inject(HttpClient);
-  private readonly local = inject(LocalStoreService);
+  private readonly library = inject(SlidesLibrary);
 
   private readonly slides = signal<readonly string[]>([FALLBACK_SLIDE]);
-  private readonly added = signal<readonly string[]>([]);
   private readonly index = signal(0);
+  private shipped: readonly string[] = [];
+  private started = false;
   private timer: ReturnType<typeof setInterval> | null = null;
   private intervalMs = 5000;
 
   readonly current = signal(FALLBACK_SLIDE);
-  readonly addedCount = computed(() => this.added().length);
+
+  constructor() {
+    // Reading the library before the guard keeps the effect subscribed to it,
+    // so the first change after `start` is picked up.
+    effect(() => {
+      const added = this.library.added().map((photo) => photo.url);
+      if (!this.started) return;
+      this.play([...this.shipped, ...added]);
+    });
+  }
 
   async start(intervalMs: number): Promise<void> {
     this.intervalMs = intervalMs;
-    const [shipped, added] = await Promise.all([this.loadManifest(), this.loadAdded()]);
-    this.added.set(added);
-    this.play([...shipped, ...added]);
+    const [shipped] = await Promise.all([this.loadManifest(), this.library.load()]);
+    this.shipped = shipped;
+    this.started = true;
+    this.play([...shipped, ...this.library.added().map((photo) => photo.url)]);
   }
 
   stop(): void {
     if (this.timer !== null) clearInterval(this.timer);
     this.timer = null;
-  }
-
-  /**
-   * Adds photos picked from the machine showing the slideshow.
-   *
-   * They are shrunk before being stored: a phone photo is several megabytes,
-   * IndexedDB holds them as text, and no projector shows more than 1920 px.
-   *
-   * @returns how many were added.
-   * @throws when the browser refuses to store them — a full disk, most often.
-   */
-  async addImages(files: readonly File[]): Promise<number> {
-    const images = files.filter((file) => file.type.startsWith('image/'));
-    if (images.length === 0) return 0;
-
-    const encoded = await Promise.all(images.map((file) => shrink(file)));
-    const added = [...this.added(), ...encoded];
-    await this.local.write(ADDED_KEY, added);
-    this.added.set(added);
-
-    // The new photos join the rotation straight away, and the shuffle puts them
-    // where chance decides rather than at the end.
-    const shipped = this.slides().filter((slide) => !slide.startsWith('data:'));
-    this.play([...shipped, ...added]);
-    return encoded.length;
-  }
-
-  /** Drops every photo added from this screen; the shipped ones stay. */
-  async clearImages(): Promise<void> {
-    await this.local.write(ADDED_KEY, []);
-    this.added.set([]);
-    this.play(this.slides().filter((slide) => !slide.startsWith('data:')));
   }
 
   private play(slides: readonly string[]): void {
@@ -98,6 +71,12 @@ export class SlideshowService {
     // Preload so the swap does not flash a blank frame on the big screen.
     const image = new Image();
     image.onload = () => this.current.set(url);
+    // A photo kept in the bucket travels over the venue's network, and a
+    // download that never lands used to freeze the screen on one image for the
+    // rest of the evening: the swap only ever happened on `load`. Leaving the
+    // current photo up and waiting for the next tick is the right failure —
+    // the loop carries on, and a photo that comes back joins it again.
+    image.onerror = () => undefined;
     image.src = url;
   }
 
@@ -109,44 +88,6 @@ export class SlideshowService {
       return [];
     }
   }
-
-  private async loadAdded(): Promise<readonly string[]> {
-    try {
-      return await this.local.read<readonly string[]>(ADDED_KEY, []);
-    } catch {
-      return [];
-    }
-  }
-}
-
-/** Re-encodes an image to at most `MAX_EDGE_PX` on its longest side. */
-async function shrink(file: File): Promise<string> {
-  const source = await loadImage(file);
-  const scale = Math.min(1, MAX_EDGE_PX / Math.max(source.width, source.height));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(source.width * scale);
-  canvas.height = Math.round(source.height * scale);
-
-  const context = canvas.getContext('2d');
-  if (!context) throw new Error('Redimensionnement impossible sur ce navigateur');
-  context.drawImage(source, 0, 0, canvas.width, canvas.height);
-  return canvas.toDataURL('image/jpeg', JPEG_QUALITY);
-}
-
-function loadImage(file: File): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const image = new Image();
-    image.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve(image);
-    };
-    image.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error(`Image illisible: ${file.name}`));
-    };
-    image.src = url;
-  });
 }
 
 /** Fisher-Yates, on a copy. */

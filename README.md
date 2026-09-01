@@ -46,6 +46,13 @@ La migration met tous les invités existants à « Homme » — la base ne peut 
 deviner. Le fichier se termine par la requête qui corrige les « Madame » et
 « Mademoiselle » d'un coup ; relisez la liste ensuite.
 
+Exécutez ensuite **une fois** `supabase/migration-realtime.sql`. Supabase ne
+diffuse en direct que les tables inscrites à la publication `supabase_realtime`,
+et une base créée avant que `schema.sql` ne gagne cette section accepte
+l'abonnement sans broncher puis n'envoie jamais rien : on confirme une présence
+sur le téléphone, l'écran de la salle ne bouge pas. C'est le symptôme à
+reconnaître.
+
 ### 2. Brancher l'application
 
 Dans **Project Settings → Data API**, relevez l'URL du projet et la clé
@@ -108,12 +115,16 @@ connexion que l'application n'a pas.
    Le badge **Attend** de la liste fait la même chose, pour un invité qui a
    oublié son billet.
 5. Dans la salle : ouvrez `/display` en plein écran. Il diffuse les photos et
-   souhaite la bienvenue à chaque invité dès qu'il est marqué présent. Le bouton
-   en bas à droite ajoute des photos en cours de soirée.
+   souhaite la bienvenue à chaque invité dès qu'il est marqué présent, cinq
+   secondes chacun, dans l'ordre des arrivées. Cet écran n'a plus aucun bouton :
+   il fait face à la salle, et les photos se gèrent depuis la première page.
 6. En fin de soirée : `/lottery` distribue les vingt cadeaux, cercle par cercle.
 
 Le pointage peut se faire depuis n'importe quel appareil ouvert sur le site :
 Supabase **pousse** les changements, l'écran de la salle réagit donc sans délai.
+Et si le direct tombe — publication non faite, réseau capricieux —, la liste est
+de toute façon relue toutes les quatre secondes : l'écran accuse quelques
+secondes de retard au lieu de rester muet, et un message le signale une fois.
 
 ## Les QR codes des billets
 
@@ -145,9 +156,13 @@ et appartenant à l'un de ces six cercles — les invités de l'Église en sont
 exclus par construction. Personne ne gagne deux fois.
 
 Le bouton principal tire un cercle au hasard, pondéré par ce qu'il lui reste de
-cadeaux ; chaque carte permet aussi de tirer un cercle en particulier. Les
-gagnants sont gardés dans le navigateur qui a fait le tirage : rechargez la page
-sans crainte, mais faites tous les tirages depuis le même appareil.
+cadeaux ; chaque carte permet aussi de tirer un cercle en particulier. Le
+gagnant est choisi au moment du clic : le paquet-cadeau qui tremble en comptant
+**cinq secondes** avant d'exploser est là pour la salle, pas pour le tirage — un
+invité qui entre pendant le décompte ne change pas un résultat déjà acquis.
+
+Les gagnants sont gardés dans le navigateur qui a fait le tirage : rechargez la
+page sans crainte, mais faites tous les tirages depuis le même appareil.
 
 ## Pages
 
@@ -203,10 +218,35 @@ npm run slides:manifest
 Le manifeste est aussi régénéré automatiquement avant `npm start` et
 `npm run build`.
 
-Le soir même, le bouton **Ajouter des photos** en bas à droite de `/display`
-ajoute des images sans recompiler. Elles sont réduites puis gardées dans le
-navigateur de cet écran : ajoutez-les depuis la machine branchée au
-vidéoprojecteur, elles ne suivent pas sur les autres appareils.
+Le soir même, l'icône **🖼 Photos du diaporama** de la première page ouvre la
+liste des photos ajoutées : on en ajoute, on en supprime une par une, ou on
+efface tout. Le changement part à l'écran d'accueil sans le recharger.
+
+Elles sont réduites à 1920 px avant d'être envoyées — une photo de téléphone
+pèse plusieurs mégaoctets et aucun vidéoprojecteur n'en montre autant.
+
+### Partager les photos entre les appareils
+
+Exécutez **une fois** `supabase/migration-slides-storage.sql` dans le SQL
+Editor : il crée le bucket `slides` et ses règles d'accès. Les photos partent
+alors dans Supabase Storage, donc une photo prise au téléphone pendant la
+réception arrive sur l'écran de la salle — celui-ci relit le bucket toutes les
+minutes.
+
+Sans ce bucket, l'application retombe sur le stockage du navigateur : les photos
+restent privées à l'appareil qui les a choisies. Ajoutez-les alors depuis la
+machine branchée au vidéoprojecteur.
+
+Deux choses à savoir avant de créer le bucket :
+
+- **Il est public**, comme le reste de la base : les fichiers sont lisibles par
+  qui connaît leur adresse. C'est ce qui permet de les afficher dans une balise
+  `<img>` sans jeton qui expire au milieu de la soirée.
+- **L'écran dépend alors du réseau de la salle.** Le navigateur garde les photos
+  déjà affichées dans son cache et le diaporama continue de tourner si une
+  image ne se charge pas, mais un réseau vraiment coupé finit par se voir. Si le
+  wifi du lieu vous inquiète, ne créez pas le bucket : le stockage local ne
+  dépend de rien.
 
 ## Structure
 
@@ -220,7 +260,7 @@ src/app/
   shared/         composants réutilisables (modale, toasts)
 src/environments/ URL et clé Supabase (vides = chaque appareil pour soi)
 src/styles/       feuilles de style historiques du site statique
-supabase/         schema.sql (à exécuter une fois) et son diagramme
+supabase/         schema.sql (à exécuter une fois), ses migrations et le diagramme
 scripts/          manifeste des photos, envoi de la liste vers Supabase
 data/             liste des invités servant de jeu de départ
 legacy/           invite.css, conservé mais inutilisé par l'application

@@ -142,7 +142,19 @@ begin
   ) then
     alter publication supabase_realtime add table public.guest;
   end if;
+
+  -- Les tables de la salle aussi : une table ajoutée depuis le PC doit
+  -- apparaître sur le téléphone sans recharger la page.
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'wedding_table'
+  ) then
+    alter publication supabase_realtime add table public.wedding_table;
+  end if;
 end $$;
+
+alter table public.guest         replica identity full;
+alter table public.wedding_table replica identity full;
 
 -- ---------------------------------------------------------------------------
 -- 6. Les règles d'accès

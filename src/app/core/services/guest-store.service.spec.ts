@@ -38,14 +38,20 @@ class FakeBackend {
 
   readonly addGuest = vi.fn(async (draft: GuestDraft) => {
     this.enforceCapacity(draft, null);
-    const guest: Guest = { ...draft, id: this.nextId++, present: false };
+    const guest: Guest = { ...draft, id: this.nextId++, present: false, checkedInAt: null };
     this.guests = [...this.guests, guest];
     return guest;
   });
 
   readonly updateGuest = vi.fn(async (id: number, draft: GuestDraft) => {
     this.enforceCapacity(draft, id);
-    const guest: Guest = { ...draft, id, present: this.find(id).present };
+    const stored = this.find(id);
+    const guest: Guest = {
+      ...draft,
+      id,
+      present: stored.present,
+      checkedInAt: stored.checkedInAt,
+    };
     this.guests = this.guests.map((g) => (g.id === id ? guest : g));
     return guest;
   });
@@ -54,8 +60,10 @@ class FakeBackend {
     this.guests = this.guests.filter((g) => g.id !== id);
   });
 
+  // Postgres stores the hour and derives the flag from it, so the fake does too.
   readonly setPresence = vi.fn(async (id: number, present: boolean) => {
-    const guest = { ...this.find(id), present };
+    const checkedInAt = present ? new Date().toISOString() : null;
+    const guest = { ...this.find(id), present, checkedInAt };
     this.guests = this.guests.map((g) => (g.id === id ? guest : g));
     return guest;
   });
@@ -254,7 +262,9 @@ describe('GuestStore with Supabase configured', () => {
 describe('GuestStore opening a device that has never seen the list', () => {
   it('adopts the shared data on load', async () => {
     const backend = new FakeBackend();
-    backend.guests = [{ ...draft(), id: 7, present: true }];
+    backend.guests = [
+      { ...draft(), id: 7, present: true, checkedInAt: '2026-09-01T19:00:00.000Z' },
+    ];
     const { store, local } = setup(backend);
 
     await store.load();
