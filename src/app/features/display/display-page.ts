@@ -10,11 +10,11 @@ import {
 
 import { type Guest, displayName, linkLabel, seatsFor, statusIcon } from '../../core/models/guest';
 import { GuestStore } from '../../core/services/guest-store.service';
-import { ToastService } from '../../core/services/toast.service';
+import { arrivalsToAnnounce } from './arrivals';
 import { SlideshowService } from './slideshow.service';
 
 /** How long a freshly arrived guest stays on screen before the photos return. */
-const GUEST_VISIBLE_MS = 10_000;
+const GUEST_VISIBLE_MS = 5000;
 const SLIDE_INTERVAL_MS = 5000;
 
 /**
@@ -32,7 +32,6 @@ const SLIDE_INTERVAL_MS = 5000;
 })
 export class DisplayPage {
   private readonly store = inject(GuestStore);
-  private readonly toast = inject(ToastService);
   protected readonly slideshow = inject(SlideshowService);
 
   protected readonly welcomed = signal<Guest | null>(null);
@@ -56,6 +55,17 @@ export class DisplayPage {
   /** Ids already welcomed, so a guest is never announced twice. */
   private announced = new Set<number>();
   private primed = false;
+
+  /**
+   * Arrivals waiting their turn on the screen.
+   *
+   * A queue rather than a single guest: two tickets scanned at the door within
+   * the same few seconds arrive in one refresh, and the screen used to keep
+   * only whichever the list happened to return first. Each of them now gets
+   * their own five seconds, in the order they were scanned.
+   */
+  private readonly queue: Guest[] = [];
+  private playing = false;
   private hideTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
@@ -78,31 +88,6 @@ export class DisplayPage {
     });
   }
 
-  /** Photos picked from this machine join the rotation immediately. */
-  protected async onSlidesPicked(event: Event): Promise<void> {
-    const input = event.target as HTMLInputElement;
-    const files = Array.from(input.files ?? []);
-    // Cleared straight away, so picking the same file twice still fires.
-    input.value = '';
-    if (files.length === 0) return;
-
-    try {
-      const added = await this.slideshow.addImages(files);
-      this.toast.success(`${added} photo(s) ajoutée(s) au diaporama`);
-    } catch (error) {
-      this.toast.error(`Photos non ajoutées: ${reason(error)}`);
-    }
-  }
-
-  protected async clearSlides(): Promise<void> {
-    try {
-      await this.slideshow.clearImages();
-      this.toast.show('Photos ajoutées effacées', 'info');
-    } catch (error) {
-      this.toast.error(`Effacement impossible: ${reason(error)}`);
-    }
-  }
-
   /**
    * Records who was already in the room, so opening the screen mid-evening
    * replays nobody.
@@ -120,20 +105,27 @@ export class DisplayPage {
   private onGuestsChanged(guests: readonly Guest[]): void {
     if (!this.primed) return;
 
-    const arrival = guests.find((guest) => guest.present && !this.announced.has(guest.id));
-    if (arrival) {
-      this.announced.add(arrival.id);
-      this.welcome(arrival);
-    }
+    const arrivals = arrivalsToAnnounce(guests, this.announced);
+    if (arrivals.length === 0) return;
+
+    this.queue.push(...arrivals);
+    if (!this.playing) this.playNext();
   }
 
-  private welcome(guest: Guest): void {
+  /** Shows the next arrival, or hands the screen back to the photos. */
+  private playNext(): void {
     if (this.hideTimer !== null) clearTimeout(this.hideTimer);
-    this.welcomed.set(guest);
-    this.hideTimer = setTimeout(() => this.welcomed.set(null), GUEST_VISIBLE_MS);
-  }
-}
 
-function reason(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+    const next = this.queue.shift();
+    if (!next) {
+      this.playing = false;
+      this.hideTimer = null;
+      this.welcomed.set(null);
+      return;
+    }
+
+    this.playing = true;
+    this.welcomed.set(next);
+    this.hideTimer = setTimeout(() => this.playNext(), GUEST_VISIBLE_MS);
+  }
 }

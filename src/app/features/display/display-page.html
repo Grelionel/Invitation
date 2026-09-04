@@ -83,18 +83,6 @@
     </div>
   }
 
-  <!-- The photos are added from the machine that shows them. The bar stays out
-       of the way until the mouse comes near it: this screen faces the room. -->
-  <div class="slides-bar">
-    <label class="slides-btn">
-      <i class="fas fa-images"></i> Ajouter des photos
-      <input type="file" accept="image/*" multiple hidden (change)="onSlidesPicked($event)" />
-    </label>
-    @if (slideshow.addedCount() > 0) {
-      <span class="slides-count">{{ slideshow.addedCount() }} ajoutée(s)</span>
-      <button type="button" class="slides-btn" (click)="clearSlides()">
-        <i class="fas fa-trash"></i> Effacer
-      </button>
-    }
-  </div>
+  <!-- Nothing to operate here: this screen faces the room, and the photos are
+       managed from the guest list like everything else. -->
 </div>

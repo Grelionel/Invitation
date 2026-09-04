@@ -67,6 +67,7 @@ export function toGuest(row: GuestRow, tablesById: ReadonlyMap<number, WeddingTa
     isChristian: (row.is_christian as YesNo | null) ?? null,
     phone: row.phone ?? null,
     present: row.present,
+    checkedInAt: row.checked_in_at,
   };
 }
 

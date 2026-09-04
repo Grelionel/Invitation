@@ -32,10 +32,19 @@ export interface Guest {
   isChristian: YesNo | null;
   phone: string | null;
   present: boolean;
+  /**
+   * When the guest was checked in, as an ISO timestamp; `null` while they are
+   * still expected.
+   *
+   * The database has always stored the hour rather than a flag. Carrying it up
+   * into the app is what lets the welcome screen order a queue at the door by
+   * the moment each ticket was scanned, instead of by row order.
+   */
+  checkedInAt: string | null;
 }
 
-/** Everything a guest form collects — the id and presence are managed by the store. */
-export type GuestDraft = Omit<Guest, 'id' | 'present'>;
+/** Everything a guest form collects — the id and the arrival are managed by the store. */
+export type GuestDraft = Omit<Guest, 'id' | 'present' | 'checkedInAt'>;
 
 const STATUS_ICONS: Record<GuestStatus, string> = {
   Couple: 'fa-heart',

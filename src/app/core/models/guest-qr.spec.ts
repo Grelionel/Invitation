@@ -17,6 +17,7 @@ function guest(overrides: Partial<Guest> = {}): Guest {
     isChristian: 'Non',
     phone: null,
     present: false,
+    checkedInAt: null,
     ...overrides,
   };
 }

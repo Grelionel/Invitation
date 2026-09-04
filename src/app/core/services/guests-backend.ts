@@ -50,8 +50,14 @@ export interface GuestsBackend {
   /**
    * Calls `onChange` whenever the data changes elsewhere, and returns a
    * function that stops listening.
+   *
+   * `onIssue` reports a live connection that could not be opened or was lost.
+   * It exists because the failure is otherwise invisible: realtime has to be
+   * published table by table, and a base where that was never done subscribes
+   * without complaint and then pushes nothing at all — the phone records an
+   * arrival, the hall screen sits still, and no message says why.
    */
-  watch(onChange: () => void): () => void;
+  watch(onChange: () => void, onIssue?: (problem: string) => void): () => void;
 }
 
 /** `null` when Supabase is not configured: the app then stays device-local. */
