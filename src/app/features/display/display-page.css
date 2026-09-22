@@ -307,7 +307,6 @@
 /* Right section (37%) */
 .right-section {
   width: 37%;
-  padding: 25px 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -372,7 +371,7 @@
 }
 
 .photo-container {
-  top: 5%;
+  top: 6%;
   width: 100%;
   height: 100vh;
   position: relative;
