@@ -24,7 +24,7 @@ body {
     background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
     color: var(--text);
     min-height: 100vh;
-    padding: 20px;
+    /* padding: 20px; */
 }
 
 .container {
