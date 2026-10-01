@@ -14,7 +14,7 @@ import { arrivalsToAnnounce } from './arrivals';
 import { SlideshowService } from './slideshow.service';
 
 /** How long a freshly arrived guest stays on screen before the photos return. */
-const GUEST_VISIBLE_MS = 5000;
+const GUEST_VISIBLE_MS = 9999;
 const SLIDE_INTERVAL_MS = 5000;
 
 /**
